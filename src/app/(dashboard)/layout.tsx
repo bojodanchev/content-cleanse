@@ -5,20 +5,11 @@ import {
   LayoutDashboard,
   FolderOpen,
   Settings,
-  LogOut,
   Zap,
-  ChevronUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Progress } from '@/components/ui/progress'
+import { UserMenu } from '@/components/dashboard/user-menu'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -46,6 +37,26 @@ export default async function DashboardLayout({
     .select('*')
     .eq('id', user.id)
     .single()
+
+  // Auto-downgrade expired plans
+  if (
+    profile &&
+    profile.plan !== 'free' &&
+    profile.plan_expires_at &&
+    new Date(profile.plan_expires_at) < new Date()
+  ) {
+    const { createServiceClient } = await import('@/lib/supabase/server')
+    const serviceClient = createServiceClient()
+    await serviceClient
+      .from('profiles')
+      .update({ plan: 'free', monthly_quota: 5, quota_used: 0, plan_expires_at: null })
+      .eq('id', user.id)
+    // Update local profile data
+    profile.plan = 'free'
+    profile.monthly_quota = 5
+    profile.quota_used = 0
+    profile.plan_expires_at = null
+  }
 
   const quotaPercentage = profile
     ? ((profile.quota_used || 0) / (profile.monthly_quota || 5)) * 100
@@ -115,46 +126,11 @@ export default async function DashboardLayout({
 
         {/* User menu */}
         <div className="p-4 border-t border-border/40">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors">
-                <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-primary/20 text-primary text-sm">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium truncate">
-                    {profile?.full_name || 'User'}
-                  </p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {profile?.plan || 'free'} plan
-                  </p>
-                </div>
-                <ChevronUp className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="cursor-pointer">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <form action="/api/auth/signout" method="POST">
-                  <button
-                    type="submit"
-                    className="flex items-center w-full text-destructive"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign out
-                  </button>
-                </form>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <UserMenu
+            initials={initials}
+            displayName={profile?.full_name || 'User'}
+            plan={profile?.plan || 'free'}
+          />
         </div>
       </aside>
 

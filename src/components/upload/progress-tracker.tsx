@@ -14,7 +14,7 @@ interface ProgressTrackerProps {
 }
 
 const statusSteps = [
-  { id: 'uploading', label: 'Uploading video' },
+  { id: 'pending', label: 'Starting job' },
   { id: 'processing', label: 'Creating variants' },
   { id: 'completed', label: 'Ready to download' },
 ]
@@ -157,9 +157,11 @@ export function ProgressTracker({ job, onDownload, onNewJob }: ProgressTrackerPr
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            {job.status === 'uploading'
-              ? 'Uploading video...'
-              : `Creating variant ${job.variants_completed + 1} of ${job.variant_count}...`}
+            {job.status === 'uploading' || job.status === 'pending'
+              ? 'Starting processing...'
+              : (job.variants_completed || 0) >= job.variant_count
+              ? 'Finalizing variants...'
+              : `Creating variant ${(job.variants_completed || 0) + 1} of ${job.variant_count}...`}
           </span>
           <span className="text-sm font-medium">{job.progress}%</span>
         </div>

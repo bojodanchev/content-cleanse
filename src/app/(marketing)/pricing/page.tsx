@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Check, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { PLANS } from '@/lib/stripe/plans'
+import { PLANS } from '@/lib/crypto/plans'
 
 const comparisonFeatures = [
   { name: 'Videos per month', free: '5', pro: '100', agency: 'Unlimited' },
@@ -103,7 +103,7 @@ export default function PricingPage() {
 
               {plan.price > 0 && (
                 <p className="text-center text-sm text-muted-foreground mt-4">
-                  30-day money-back guarantee
+                  Pay with crypto • 30-day access
                 </p>
               )}
             </motion.div>
@@ -206,12 +206,12 @@ export default function PricingPage() {
               a: "You'll be notified when you're approaching your limit. Once reached, you'll need to upgrade or wait for the next billing cycle to process more videos.",
             },
             {
-              q: 'Do you offer annual billing?',
-              a: 'Not yet, but annual billing with 2 months free is coming soon. Subscribe to our newsletter to be notified.',
+              q: 'How do crypto payments work?',
+              a: 'We accept BTC, ETH, USDT, USDC, and other major cryptocurrencies. Each payment gives you 30 days of access. Renew when your plan is about to expire.',
             },
             {
-              q: 'Is there a money-back guarantee?',
-              a: "Yes! All paid plans come with a 30-day money-back guarantee. If you're not satisfied, contact us for a full refund.",
+              q: 'What if my plan expires?',
+              a: "You'll receive a reminder before expiry. If you don't renew, your account reverts to the Free plan. Your data is never deleted.",
             },
             {
               q: 'Do you offer discounts for non-profits or students?',

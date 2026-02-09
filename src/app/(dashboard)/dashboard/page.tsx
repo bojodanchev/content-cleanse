@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Clock, Zap, FileVideo, TrendingUp } from 'lucide-react'
+import { ArrowRight, Clock, Zap, FileVideo, TrendingUp, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dropzone } from '@/components/upload/dropzone'
@@ -10,6 +10,7 @@ import { SettingsPanel, ProcessingSettings } from '@/components/upload/settings-
 import { ProgressTracker } from '@/components/upload/progress-tracker'
 import { getClient } from '@/lib/supabase/client'
 import type { Job, Profile } from '@/lib/supabase/types'
+import JSZip from 'jszip'
 
 type ViewState = 'upload' | 'settings' | 'processing'
 
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const [currentJob, setCurrentJob] = useState<Job | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [recentJobs, setRecentJobs] = useState<Job[]>([])
+  const [downloadingJobId, setDownloadingJobId] = useState<string | null>(null)
   const [settings, setSettings] = useState<ProcessingSettings>({
     variantCount: 10,
     removeWatermark: false,
@@ -54,8 +56,32 @@ export default function DashboardPage() {
       )
       .subscribe()
 
+    // Detect stale jobs stuck in processing for >15 minutes
+    const staleCheckInterval = setInterval(() => {
+      if (
+        currentJob.status === 'processing' &&
+        currentJob.created_at
+      ) {
+        const elapsed = Date.now() - new Date(currentJob.created_at).getTime()
+        const fifteenMinutes = 15 * 60 * 1000
+        if (elapsed > fifteenMinutes) {
+          setCurrentJob((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: 'failed' as const,
+                  error_message:
+                    'Processing timed out. The server may have encountered an error. Please try again.',
+                }
+              : prev
+          )
+        }
+      }
+    }, 30000) // Check every 30 seconds
+
     return () => {
       supabase.removeChannel(channel)
+      clearInterval(staleCheckInterval)
     }
   }, [currentJob?.id])
 
@@ -122,59 +148,122 @@ export default function DashboardPage() {
 
       if (uploadError) throw uploadError
 
-      // Create job in database
-      const jobData = {
-        user_id: profile.id,
-        status: 'pending' as const,
-        source_file_path: fileName,
-        source_file_name: selectedFile.name,
-        source_file_size: selectedFile.size,
-        variant_count: settings.variantCount,
-        settings: {
-          brightness_range: [-0.03, 0.03],
-          saturation_range: [0.97, 1.03],
-          hue_range: [-5, 5],
-          crop_px_range: [1, 3],
-          speed_range: [0.98, 1.02],
-          remove_watermark: settings.removeWatermark,
-          add_watermark: settings.addWatermark,
-          watermark_path: null,
-        },
+      // Create job via server API (validates plan limits server-side)
+      const createResponse = await fetch('/api/jobs/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filePath: fileName,
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          variantCount: settings.variantCount,
+          removeWatermark: settings.removeWatermark,
+          addWatermark: settings.addWatermark,
+        }),
+      })
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to create job')
       }
 
-      const { data: job, error: jobError } = await supabase
-        .from('jobs')
-        .insert(jobData)
-        .select()
-        .single()
-
-      if (jobError) throw jobError
+      const { job } = await createResponse.json()
 
       setCurrentJob(job)
       setUploading(false)
 
-      // Trigger processing (would call Modal.com API in production)
-      await fetch('/api/jobs/process', {
+      // Trigger processing on Modal
+      const processResponse = await fetch('/api/jobs/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId: job.id }),
       })
+
+      if (!processResponse.ok) {
+        const errorData = await processResponse.json().catch(() => ({}))
+        setCurrentJob({
+          ...job,
+          status: 'failed',
+          error_message: errorData.error || 'Failed to start processing',
+        })
+      }
     } catch (error) {
       console.error('Error starting job:', error)
       setUploading(false)
+      setView('upload')
+    }
+  }
+
+  const downloadJobFiles = async (job: Job) => {
+    if (!profile || downloadingJobId) return
+    setDownloadingJobId(job.id)
+
+    try {
+      // Try pre-built ZIP first if available
+      if (job.output_zip_path) {
+        const { data } = await supabase.storage
+          .from('outputs')
+          .createSignedUrl(job.output_zip_path, 3600)
+
+        if (data?.signedUrl) {
+          const a = document.createElement('a')
+          a.href = data.signedUrl
+          a.download = `${job.source_file_name || 'variants'}_variants.zip`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          return
+        }
+      }
+
+      // Fallback: build ZIP client-side from individual variant files
+      const { data: files } = await supabase.storage
+        .from('outputs')
+        .list(`${profile.id}/${job.id}`, { sortBy: { column: 'name', order: 'asc' } })
+
+      if (!files?.length) {
+        alert('No output files found for this job.')
+        return
+      }
+
+      const variantFiles = files.filter((f) => f.name.endsWith('.mp4'))
+      if (!variantFiles.length) {
+        alert('No variant files found for this job.')
+        return
+      }
+
+      const zip = new JSZip()
+
+      for (const file of variantFiles) {
+        const { data } = await supabase.storage
+          .from('outputs')
+          .download(`${profile.id}/${job.id}/${file.name}`)
+
+        if (data) {
+          zip.file(file.name, data)
+        }
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${(job.source_file_name || 'variants').replace(/\.[^.]+$/, '')}_variants.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Download failed:', err)
+      alert('Download failed. Please try again.')
+    } finally {
+      setDownloadingJobId(null)
     }
   }
 
   const handleDownload = async () => {
-    if (!currentJob?.output_zip_path) return
-
-    const { data } = await supabase.storage
-      .from('outputs')
-      .createSignedUrl(currentJob.output_zip_path, 3600)
-
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, '_blank')
-    }
+    if (!currentJob) return
+    await downloadJobFiles(currentJob)
   }
 
   const handleNewJob = () => {
@@ -349,23 +438,37 @@ export default function DashboardPage() {
                   {recentJobs.map((job) => (
                     <div
                       key={job.id}
-                      className="p-3 rounded-lg bg-secondary/30 border border-border/40"
+                      onClick={() => job.status === 'completed' && !downloadingJobId && downloadJobFiles(job)}
+                      className={`p-3 rounded-lg bg-secondary/30 border border-border/40 ${
+                        job.status === 'completed' && !downloadingJobId
+                          ? 'cursor-pointer hover:bg-secondary/50 hover:border-primary/30 transition-colors'
+                          : ''
+                      }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium truncate max-w-[150px]">
                           {job.source_file_name || 'Video'}
                         </span>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${
-                            job.status === 'completed'
-                              ? 'bg-green-500/20 text-green-500'
-                              : job.status === 'failed'
-                              ? 'bg-destructive/20 text-destructive'
-                              : 'bg-primary/20 text-primary'
-                          }`}
-                        >
-                          {job.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {job.status === 'completed' && (
+                            downloadingJobId === job.id ? (
+                              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+                            ) : (
+                              <Download className="w-3.5 h-3.5 text-green-500" />
+                            )
+                          )}
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              job.status === 'completed'
+                                ? 'bg-green-500/20 text-green-500'
+                                : job.status === 'failed'
+                                ? 'bg-destructive/20 text-destructive'
+                                : 'bg-primary/20 text-primary'
+                            }`}
+                          >
+                            {job.status}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {job.variant_count} variants •{' '}

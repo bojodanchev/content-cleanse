@@ -11,7 +11,6 @@ This worker:
 """
 
 import modal
-import os
 import subprocess
 import random
 import hashlib
@@ -27,21 +26,17 @@ app = modal.App("content-cleanse")
 # Container image with FFmpeg and Python dependencies
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("ffmpeg", "ffprobe")
+    .apt_install("ffmpeg")
     .pip_install(
         "supabase",
-        "python-dotenv",
         "httpx",
+        "fastapi[standard]",
     )
 )
-
-# Secrets for Supabase connection
-secrets = modal.Secret.from_name("supabase-secrets")
 
 
 @app.function(
     image=image,
-    secrets=[secrets],
     timeout=600,  # 10 minutes max
     cpu=2,
     memory=4096,  # 4GB RAM
@@ -52,6 +47,8 @@ def process_video(
     variant_count: int,
     settings: Dict[str, Any],
     user_id: str,
+    supabase_url: str,
+    supabase_key: str,
 ) -> Dict[str, Any]:
     """
     Process a video and create unique variants.
@@ -62,16 +59,15 @@ def process_video(
         variant_count: Number of variants to create
         settings: Processing settings (brightness, saturation, etc.)
         user_id: User ID for storage path organization
+        supabase_url: Supabase project URL
+        supabase_key: Supabase service role key
 
     Returns:
         Dict with status, output paths, and variant details
     """
     from supabase import create_client, Client
-    import httpx
 
     # Initialize Supabase client
-    supabase_url = os.environ["SUPABASE_URL"]
-    supabase_key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     supabase: Client = create_client(supabase_url, supabase_key)
 
     # Create working directory
@@ -124,33 +120,52 @@ def process_video(
                 "transformations": transformations,
             })
 
+            # Upload variant to Supabase Storage
+            variant_storage_path = f"{user_id}/{job_id}/{variant_name}"
+            try:
+                with open(variant_path, "rb") as vf:
+                    supabase.storage.from_("outputs").upload(
+                        variant_storage_path,
+                        vf.read(),
+                        {"content-type": "video/mp4"},
+                    )
+            except Exception as upload_err:
+                print(f"Warning: Failed to upload variant {variant_name}: {upload_err}")
+
+            # Insert variant record into database
+            try:
+                supabase.table("variants").insert({
+                    "job_id": job_id,
+                    "file_path": variant_storage_path,
+                    "file_size": file_size,
+                    "transformations": transformations,
+                    "file_hash": file_hash,
+                }).execute()
+            except Exception as db_err:
+                print(f"Warning: Failed to insert variant record {variant_name}: {db_err}")
+
             # Update progress
             progress = int((i + 1) / variant_count * 100)
             update_job_status(supabase, job_id, "processing", progress, i + 1)
             print(f"Variant {i+1}/{variant_count} complete")
 
-        # Create ZIP archive
+        # Create and upload ZIP archive
+        print("Finalizing: creating ZIP archive...")
         zip_path = work_dir / f"{job_id}_variants.zip"
         create_zip_archive(variants, str(zip_path))
 
         # Upload ZIP to Supabase Storage
         output_storage_path = f"{user_id}/{job_id}/variants.zip"
-        with open(zip_path, "rb") as f:
-            supabase.storage.from_("outputs").upload(
-                output_storage_path,
-                f.read(),
-                {"content-type": "application/zip"},
-            )
-
-        # Upload variant metadata to database
-        for variant in variants:
-            supabase.table("variants").insert({
-                "job_id": job_id,
-                "file_path": f"{user_id}/{job_id}/{variant['name']}",
-                "file_size": variant["size"],
-                "transformations": variant["transformations"],
-                "file_hash": variant["hash"],
-            }).execute()
+        try:
+            with open(zip_path, "rb") as f:
+                supabase.storage.from_("outputs").upload(
+                    output_storage_path,
+                    f.read(),
+                    {"content-type": "application/zip"},
+                )
+        except Exception as zip_err:
+            print(f"Warning: Failed to upload ZIP: {zip_err}")
+            output_storage_path = None
 
         # Mark job as completed
         supabase.table("jobs").update({
@@ -169,11 +184,14 @@ def process_video(
 
     except Exception as e:
         print(f"Error processing video: {e}")
-        supabase.table("jobs").update({
-            "status": "failed",
-            "error_message": str(e),
-            "error_code": type(e).__name__,
-        }).eq("id", job_id).execute()
+        try:
+            supabase.table("jobs").update({
+                "status": "failed",
+                "error_message": str(e)[:500],
+                "error_code": type(e).__name__,
+            }).eq("id", job_id).execute()
+        except Exception as status_err:
+            print(f"CRITICAL: Failed to update job status to failed: {status_err}")
         raise
 
     finally:
@@ -308,9 +326,34 @@ def create_zip_archive(variants: List[Dict], zip_path: str) -> None:
             zf.write(variant["path"], variant["name"])
 
 
+@app.function(image=image)
+@modal.fastapi_endpoint(method="POST")
+def start_processing(item: dict):
+    """
+    Web endpoint to trigger video processing.
+    Called from the Next.js API route via HTTP POST.
+    Spawns process_video asynchronously and returns immediately.
+    """
+    required = ["job_id", "source_path", "variant_count", "settings", "user_id", "supabase_url", "supabase_key"]
+    missing = [k for k in required if k not in item]
+    if missing:
+        return {"status": "error", "error": f"Missing fields: {missing}"}
+
+    call = process_video.spawn(
+        job_id=item["job_id"],
+        source_path=item["source_path"],
+        variant_count=item["variant_count"],
+        settings=item["settings"],
+        user_id=item["user_id"],
+        supabase_url=item["supabase_url"],
+        supabase_key=item["supabase_key"],
+    )
+
+    return {"status": "queued", "call_id": call.object_id}
+
+
 # Entry point for testing locally
 if __name__ == "__main__":
-    # Test with a sample job
     import sys
 
     if len(sys.argv) > 1:
@@ -331,5 +374,7 @@ if __name__ == "__main__":
             "remove_watermark": False,
         },
         user_id="test-user",
+        supabase_url="http://localhost:54321",
+        supabase_key="test-key",
     )
     print(f"Result: {result}")

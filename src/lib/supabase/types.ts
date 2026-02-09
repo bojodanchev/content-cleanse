@@ -38,6 +38,8 @@ export interface Database {
           monthly_quota: number
           quota_used: number
           quota_reset_at: string
+          plan_expires_at: string | null
+          referred_by: string | null
           created_at: string
           updated_at: string
         }
@@ -52,6 +54,8 @@ export interface Database {
           monthly_quota?: number
           quota_used?: number
           quota_reset_at?: string
+          plan_expires_at?: string | null
+          referred_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -66,6 +70,8 @@ export interface Database {
           monthly_quota?: number
           quota_used?: number
           quota_reset_at?: string
+          plan_expires_at?: string | null
+          referred_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -242,6 +248,119 @@ export interface Database {
           created_at?: string
         }
       }
+      payments: {
+        Row: {
+          id: string
+          user_id: string
+          charge_id: string
+          plan: string
+          amount: number
+          currency: string
+          crypto_currency: string | null
+          status: 'pending' | 'confirmed' | 'failed' | 'expired'
+          created_at: string
+          confirmed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          charge_id: string
+          plan: string
+          amount: number
+          currency?: string
+          crypto_currency?: string | null
+          status?: 'pending' | 'confirmed' | 'failed' | 'expired'
+          created_at?: string
+          confirmed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          charge_id?: string
+          plan?: string
+          amount?: number
+          currency?: string
+          crypto_currency?: string | null
+          status?: 'pending' | 'confirmed' | 'failed' | 'expired'
+          created_at?: string
+          confirmed_at?: string | null
+        }
+      }
+      affiliates: {
+        Row: {
+          id: string
+          user_id: string
+          code: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          code: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          code?: string
+          is_active?: boolean
+          created_at?: string
+        }
+      }
+      referrals: {
+        Row: {
+          id: string
+          affiliate_id: string
+          referred_user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          affiliate_id: string
+          referred_user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          affiliate_id?: string
+          referred_user_id?: string
+          created_at?: string
+        }
+      }
+      commissions: {
+        Row: {
+          id: string
+          affiliate_id: string
+          payment_id: string
+          referred_user_id: string
+          amount: number
+          status: 'pending' | 'paid'
+          created_at: string
+          paid_at: string | null
+        }
+        Insert: {
+          id?: string
+          affiliate_id: string
+          payment_id: string
+          referred_user_id: string
+          amount: number
+          status?: 'pending' | 'paid'
+          created_at?: string
+          paid_at?: string | null
+        }
+        Update: {
+          id?: string
+          affiliate_id?: string
+          payment_id?: string
+          referred_user_id?: string
+          amount?: number
+          status?: 'pending' | 'paid'
+          created_at?: string
+          paid_at?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -249,6 +368,18 @@ export interface Database {
     Functions: {
       reset_monthly_quotas: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      check_expired_plans: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      try_consume_quota: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      refund_quota: {
+        Args: { p_user_id: string }
         Returns: undefined
       }
     }
@@ -270,3 +401,13 @@ export type JobInsert = Database['public']['Tables']['jobs']['Insert']
 export type VariantInsert = Database['public']['Tables']['variants']['Insert']
 export type EventInsert = Database['public']['Tables']['events']['Insert']
 export type WatermarkInsert = Database['public']['Tables']['watermarks']['Insert']
+
+export type Payment = Database['public']['Tables']['payments']['Row']
+export type PaymentInsert = Database['public']['Tables']['payments']['Insert']
+
+export type Affiliate = Database['public']['Tables']['affiliates']['Row']
+export type AffiliateInsert = Database['public']['Tables']['affiliates']['Insert']
+export type Referral = Database['public']['Tables']['referrals']['Row']
+export type ReferralInsert = Database['public']['Tables']['referrals']['Insert']
+export type Commission = Database['public']['Tables']['commissions']['Row']
+export type CommissionInsert = Database['public']['Tables']['commissions']['Insert']

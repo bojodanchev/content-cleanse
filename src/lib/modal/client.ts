@@ -1,8 +1,9 @@
 /**
  * Modal.com Client for Video Processing
  *
- * This client handles communication with Modal.com serverless functions
- * for video processing jobs.
+ * Calls the Modal web endpoint to trigger async video processing.
+ * The Modal worker handles FFmpeg transforms and reports progress
+ * back via Supabase Realtime.
  */
 
 interface ModalJobRequest {
@@ -23,50 +24,57 @@ interface ModalJobRequest {
 }
 
 interface ModalJobResponse {
-  status: 'queued' | 'running' | 'completed' | 'failed'
+  status: 'queued' | 'error'
   callId?: string
   error?: string
 }
 
-const MODAL_API_URL = 'https://api.modal.com/v1'
-
 export async function triggerVideoProcessing(
   request: ModalJobRequest
 ): Promise<ModalJobResponse> {
-  const tokenId = process.env.MODAL_TOKEN_ID
-  const tokenSecret = process.env.MODAL_TOKEN_SECRET
+  const endpointUrl = process.env.MODAL_ENDPOINT_URL
 
-  if (!tokenId || !tokenSecret) {
-    console.warn('Modal credentials not configured, using simulation mode')
-    return { status: 'queued' }
+  if (!endpointUrl) {
+    console.error('MODAL_ENDPOINT_URL not configured')
+    return { status: 'error', error: 'Modal endpoint not configured' }
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase credentials not configured')
+    return { status: 'error', error: 'Supabase credentials not configured' }
   }
 
   try {
-    // Call Modal.com function
-    const response = await fetch(
-      `${MODAL_API_URL}/apps/content-cleanse/process_video`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${tokenId}:${tokenSecret}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          job_id: request.jobId,
-          source_path: request.sourcePath,
-          variant_count: request.variantCount,
-          settings: request.settings,
-          user_id: request.userId,
-        }),
-      }
-    )
+    const response = await fetch(endpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        job_id: request.jobId,
+        source_path: request.sourcePath,
+        variant_count: request.variantCount,
+        settings: request.settings,
+        user_id: request.userId,
+        supabase_url: supabaseUrl,
+        supabase_key: supabaseKey,
+      }),
+    })
 
     if (!response.ok) {
       const error = await response.text()
-      throw new Error(`Modal API error: ${error}`)
+      throw new Error(`Modal endpoint error (${response.status}): ${error}`)
     }
 
     const result = await response.json()
+
+    if (result.status === 'error') {
+      return { status: 'error', error: result.error }
+    }
+
     return {
       status: 'queued',
       callId: result.call_id,
@@ -74,68 +82,8 @@ export async function triggerVideoProcessing(
   } catch (error) {
     console.error('Failed to trigger Modal job:', error)
     return {
-      status: 'failed',
+      status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
     }
-  }
-}
-
-export async function getJobStatus(callId: string): Promise<ModalJobResponse> {
-  const tokenId = process.env.MODAL_TOKEN_ID
-  const tokenSecret = process.env.MODAL_TOKEN_SECRET
-
-  if (!tokenId || !tokenSecret) {
-    return { status: 'running' }
-  }
-
-  try {
-    const response = await fetch(
-      `${MODAL_API_URL}/functions/calls/${callId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${tokenId}:${tokenSecret}`,
-        },
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error('Failed to get job status')
-    }
-
-    const result = await response.json()
-    return {
-      status: result.status,
-      callId,
-    }
-  } catch (error) {
-    return {
-      status: 'failed',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
-  }
-}
-
-export async function cancelJob(callId: string): Promise<boolean> {
-  const tokenId = process.env.MODAL_TOKEN_ID
-  const tokenSecret = process.env.MODAL_TOKEN_SECRET
-
-  if (!tokenId || !tokenSecret) {
-    return false
-  }
-
-  try {
-    const response = await fetch(
-      `${MODAL_API_URL}/functions/calls/${callId}/cancel`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${tokenId}:${tokenSecret}`,
-        },
-      }
-    )
-
-    return response.ok
-  } catch {
-    return false
   }
 }

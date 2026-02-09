@@ -1,5 +1,7 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ReferralTracker } from '@/components/marketing/referral-tracker'
 
 export default function MarketingLayout({
   children,
@@ -58,6 +60,10 @@ export default function MarketingLayout({
           </div>
         </nav>
       </header>
+
+      <Suspense fallback={null}>
+        <ReferralTracker />
+      </Suspense>
 
       {/* Main content */}
       <main>{children}</main>

@@ -33,12 +33,20 @@ export default function SignupPage() {
 
     const supabase = getClient()
 
+    // Read referral code from cookie
+    const refCode = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('ref_code='))
+      ?.split('=')[1]
+    const referredBy = refCode ? decodeURIComponent(refCode) : undefined
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
+          referred_by: referredBy,
         },
       },
     })
@@ -50,6 +58,8 @@ export default function SignupPage() {
     }
 
     setSuccess(true)
+    // Clear referral cookie
+    document.cookie = 'ref_code=; path=/; max-age=0'
     setTimeout(() => {
       router.push('/login?message=Check your email to confirm your account')
     }, 2000)

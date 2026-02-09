@@ -15,7 +15,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { PLANS } from '@/lib/stripe/plans'
+import { PLANS } from '@/lib/crypto/plans'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -51,14 +51,6 @@ export default function LandingPage() {
             animate="animate"
             className="text-center max-w-4xl mx-auto"
           >
-            {/* Badge */}
-            <motion.div variants={fadeInUp} className="mb-8">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-sm font-medium">
-                <Sparkles className="w-4 h-4" />
-                50% cheaper than TikFusion
-              </span>
-            </motion.div>
-
             {/* Headline */}
             <motion.h1
               variants={fadeInUp}

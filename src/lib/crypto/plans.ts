@@ -3,11 +3,13 @@ export interface Plan {
   name: string
   description: string
   price: number
-  priceId: string | null
   features: string[]
   quota: number
+  variantLimit: number
   popular?: boolean
 }
+
+export const PLAN_DURATION_DAYS = 30
 
 export const PLANS: Plan[] = [
   {
@@ -15,8 +17,8 @@ export const PLANS: Plan[] = [
     name: 'Free',
     description: 'Perfect for trying out Content Cleanse',
     price: 0,
-    priceId: null,
     quota: 5,
+    variantLimit: 10,
     features: [
       '5 videos per month',
       '10 variants per video',
@@ -29,8 +31,8 @@ export const PLANS: Plan[] = [
     name: 'Pro',
     description: 'For serious content creators',
     price: 99,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_pro',
     quota: 100,
+    variantLimit: 100,
     popular: true,
     features: [
       '100 videos per month',
@@ -46,8 +48,8 @@ export const PLANS: Plan[] = [
     name: 'Agency',
     description: 'For teams and agencies',
     price: 249,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_AGENCY_PRICE_ID || 'price_agency',
     quota: 10000,
+    variantLimit: 100,
     features: [
       'Unlimited videos',
       '100 variants per video',
@@ -61,10 +63,6 @@ export const PLANS: Plan[] = [
   },
 ]
 
-export function getPlan(planId: string): Plan | undefined {
+export function getPlanById(planId: string): Plan | undefined {
   return PLANS.find((p) => p.id === planId)
-}
-
-export function getPlanByPriceId(priceId: string): Plan | undefined {
-  return PLANS.find((p) => p.priceId === priceId)
 }

@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createCheckoutSession, createPortalSession } from '@/lib/stripe/client'
-import { getPlan } from '@/lib/stripe/plans'
-
-interface ProfileData {
-  stripe_customer_id: string | null
-}
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createCryptoCharge } from '@/lib/crypto/client'
+import { getPlanById } from '@/lib/crypto/plans'
 
 export async function POST(request: Request) {
   try {
@@ -19,50 +15,59 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { planId, action } = await request.json()
+    const { plan } = await request.json()
 
-    // Get user profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('stripe_customer_id')
-      .eq('id', user.id)
-      .single() as { data: ProfileData | null }
-
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-
-    // If action is 'portal', redirect to customer portal
-    if (action === 'portal') {
-      if (!profile?.stripe_customer_id) {
-        return NextResponse.json(
-          { error: 'No subscription found' },
-          { status: 400 }
-        )
-      }
-
-      const session = await createPortalSession({
-        customerId: profile.stripe_customer_id,
-        returnUrl: `${baseUrl}/settings`,
-      })
-
-      return NextResponse.json({ url: session.url })
-    }
-
-    // Otherwise, create checkout session
-    const plan = getPlan(planId)
-
-    if (!plan || !plan.priceId) {
+    const planConfig = getPlanById(plan)
+    if (!planConfig || planConfig.price === 0) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
     }
 
-    const session = await createCheckoutSession({
-      priceId: plan.priceId,
-      customerId: profile?.stripe_customer_id || undefined,
+    // Affiliate discount + tracking
+    const serviceClient = createServiceClient()
+    const { data: profile } = await serviceClient
+      .from('profiles')
+      .select('referred_by')
+      .eq('id', user.id)
+      .single()
+
+    let priceOverride: number | undefined
+    let affiliateCode: string | null = null
+
+    if (profile?.referred_by) {
+      // Check affiliate is active
+      const { data: affiliate } = await serviceClient
+        .from('affiliates')
+        .select('id, code, is_active')
+        .eq('code', profile.referred_by)
+        .eq('is_active', true)
+        .single()
+
+      if (affiliate) {
+        affiliateCode = affiliate.code
+
+        // Check if user has any confirmed payments (first payment = discount)
+        const { count } = await serviceClient
+          .from('payments')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'confirmed')
+
+        if (count === 0) {
+          // 10% discount on first payment
+          priceOverride = Math.round(planConfig.price * 0.9 * 100) / 100
+        }
+      }
+    }
+
+    const charge = await createCryptoCharge({
+      plan,
       userId: user.id,
-      successUrl: `${baseUrl}/dashboard?checkout=success`,
-      cancelUrl: `${baseUrl}/pricing?checkout=cancelled`,
+      userEmail: user.email!,
+      priceOverride,
+      affiliateCode,
     })
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({ url: charge.hostedUrl })
   } catch (error) {
     console.error('Checkout error:', error)
     return NextResponse.json(

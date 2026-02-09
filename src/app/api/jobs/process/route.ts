@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-
-// This would trigger the Modal.com worker in production
-// For now, it simulates processing progress
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { triggerVideoProcessing } from '@/lib/modal/client'
+import { getPlanById } from '@/lib/crypto/plans'
 
 export async function POST(request: Request) {
   try {
@@ -12,10 +11,97 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Job ID required' }, { status: 400 })
     }
 
+    // Verify the user is authenticated
     const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Fetch full job details using service client
+    const serviceClient = createServiceClient()
+    const { data: job, error: jobError } = await serviceClient
+      .from('jobs')
+      .select('*')
+      .eq('id', jobId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (jobError || !job) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+    }
+
+    // Fetch user profile for plan enforcement
+    const { data: profile } = await serviceClient
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+    }
+
+    // --- PLAN ENFORCEMENT ---
+
+    // Check plan expiry
+    if (
+      profile.plan !== 'free' &&
+      profile.plan_expires_at &&
+      new Date(profile.plan_expires_at) < new Date()
+    ) {
+      // Auto-downgrade expired plan
+      await serviceClient
+        .from('profiles')
+        .update({ plan: 'free', monthly_quota: 5, quota_used: 0 })
+        .eq('id', user.id)
+      profile.plan = 'free'
+      profile.monthly_quota = 5
+      profile.quota_used = 0
+    }
+
+    // Atomic quota consumption — prevents race conditions
+    const { data: quotaConsumed } = await serviceClient.rpc('try_consume_quota', {
+      p_user_id: user.id,
+    })
+
+    if (!quotaConsumed) {
+      return NextResponse.json(
+        { error: 'Monthly quota exceeded. Upgrade your plan for more videos.' },
+        { status: 403 }
+      )
+    }
+
+    // Enforce variant count limit based on plan
+    const planConfig = getPlanById(profile.plan)
+    const maxVariants = planConfig?.variantLimit ?? 10
+    if (job.variant_count > maxVariants) {
+      // Clamp variant count to plan limit
+      await serviceClient
+        .from('jobs')
+        .update({ variant_count: maxVariants })
+        .eq('id', jobId)
+      job.variant_count = maxVariants
+    }
+
+    // Enforce watermark removal based on plan
+    const canRemoveWatermark = profile.plan === 'pro' || profile.plan === 'agency'
+    if (job.settings?.remove_watermark && !canRemoveWatermark) {
+      const updatedSettings = { ...job.settings, remove_watermark: false }
+      await serviceClient
+        .from('jobs')
+        .update({ settings: updatedSettings })
+        .eq('id', jobId)
+      job.settings = updatedSettings
+    }
+
+    // --- END PLAN ENFORCEMENT ---
 
     // Update job status to processing
-    await supabase
+    await serviceClient
       .from('jobs')
       .update({
         status: 'processing',
@@ -23,16 +109,39 @@ export async function POST(request: Request) {
       })
       .eq('id', jobId)
 
-    // In production, this would:
-    // 1. Call Modal.com API to start the FFmpeg worker
-    // 2. The worker would update progress via Supabase Realtime
-    // 3. On completion, upload the ZIP to Supabase Storage
+    // Trigger real processing on Modal
+    const result = await triggerVideoProcessing({
+      jobId: job.id,
+      sourcePath: job.source_file_path,
+      variantCount: job.variant_count,
+      settings: job.settings,
+      userId: job.user_id,
+    })
 
-    // For demo purposes, simulate progress updates
-    // This would be replaced by actual Modal.com webhook callbacks
-    simulateProcessing(jobId)
+    if (result.status === 'error') {
+      // Mark job as failed if Modal trigger fails
+      await serviceClient
+        .from('jobs')
+        .update({
+          status: 'failed',
+          error_message: result.error || 'Failed to start processing',
+        })
+        .eq('id', jobId)
 
-    return NextResponse.json({ success: true, jobId })
+      // Refund quota since processing failed
+      await serviceClient.rpc('refund_quota', { p_user_id: user.id })
+
+      return NextResponse.json(
+        { error: result.error || 'Failed to start processing' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      jobId,
+      callId: result.callId,
+    })
   } catch (error) {
     console.error('Process job error:', error)
     return NextResponse.json(
@@ -40,52 +149,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
-
-// Simulation function - would be replaced by actual Modal.com processing
-async function simulateProcessing(jobId: string) {
-  const { createServiceClient } = await import('@/lib/supabase/server')
-  const supabase = createServiceClient()
-
-  // Get job details
-  const { data: job } = await supabase
-    .from('jobs')
-    .select('variant_count')
-    .eq('id', jobId)
-    .single()
-
-  if (!job) return
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalVariants = (job as any).variant_count as number
-  let completed = 0
-
-  // Simulate progress updates
-  const interval = setInterval(async () => {
-    completed++
-    const progress = Math.round((completed / totalVariants) * 100)
-
-    await supabase
-      .from('jobs')
-      .update({
-        progress,
-        variants_completed: completed,
-      })
-      .eq('id', jobId)
-
-    if (completed >= totalVariants) {
-      clearInterval(interval)
-
-      // Mark as completed
-      await supabase
-        .from('jobs')
-        .update({
-          status: 'completed',
-          progress: 100,
-          completed_at: new Date().toISOString(),
-          output_zip_path: `${jobId}/variants.zip`, // Placeholder path
-        })
-        .eq('id', jobId)
-    }
-  }, 500) // Simulate ~0.5s per variant
 }
