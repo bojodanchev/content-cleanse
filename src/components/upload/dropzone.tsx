@@ -22,7 +22,7 @@ const ACCEPTED_TYPES = {
   'video/webm': ['.webm'],
 }
 
-const MAX_SIZE = 500 * 1024 * 1024 // 500MB
+const MAX_SIZE = 50 * 1024 * 1024 // 50MB (Supabase free tier limit)
 
 export function Dropzone({
   onFileSelect,
@@ -38,7 +38,7 @@ export function Dropzone({
       setError(null)
 
       if (rejectedFiles.length > 0) {
-        setError('Invalid file. Please upload a video file under 500MB.')
+        setError('Invalid file. Please upload a video file under 50MB.')
         return
       }
 
@@ -152,7 +152,7 @@ export function Dropzone({
                 or click to browse files
               </p>
               <p className="text-sm text-muted-foreground">
-                MP4, MOV, AVI, WebM up to 500MB
+                MP4, MOV, AVI, WebM up to 50MB
               </p>
             </motion.div>
           )}

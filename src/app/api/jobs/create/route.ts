@@ -11,10 +11,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { filePath, fileName, fileSize, variantCount, removeWatermark, addWatermark } = await request.json()
+    const { filePath, fileName, fileSize, variantCount, removeWatermark, addWatermark, jobType, settings } = await request.json()
 
     if (!filePath || !fileName) {
       return NextResponse.json({ error: 'File path and name required' }, { status: 400 })
+    }
+
+    // Enforce 50MB file size limit (Supabase free tier)
+    const MAX_FILE_SIZE = 50 * 1024 * 1024
+    if (fileSize && fileSize > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File exceeds 50MB size limit' }, { status: 400 })
     }
 
     // Fetch profile for plan enforcement
@@ -34,26 +40,46 @@ export async function POST(request: Request) {
     const maxVariants = planConfig?.variantLimit ?? 10
     const validatedVariantCount = Math.min(Math.max(1, variantCount || 10), maxVariants)
 
-    const canRemoveWatermark = profile.plan === 'pro' || profile.plan === 'agency'
-    const validatedRemoveWatermark = canRemoveWatermark && Boolean(removeWatermark)
+    const isPhotoCaptions = jobType === 'photo_captions'
 
-    const jobData = {
-      user_id: user.id,
-      status: 'pending' as const,
-      source_file_path: filePath,
-      source_file_name: fileName,
-      source_file_size: fileSize || 0,
-      variant_count: validatedVariantCount,
-      settings: {
-        brightness_range: [-0.03, 0.03],
-        saturation_range: [0.97, 1.03],
-        hue_range: [-5, 5],
-        crop_px_range: [1, 3],
-        speed_range: [0.98, 1.02],
-        remove_watermark: validatedRemoveWatermark,
-        add_watermark: Boolean(addWatermark),
-        watermark_path: null,
-      },
+    let jobData
+
+    if (isPhotoCaptions) {
+      // Photo captions job — store caption settings as-is
+      jobData = {
+        user_id: user.id,
+        job_type: 'photo_captions' as const,
+        status: 'pending' as const,
+        source_file_path: filePath,
+        source_file_name: fileName,
+        source_file_size: fileSize || 0,
+        variant_count: validatedVariantCount,
+        settings: settings || {},
+      }
+    } else {
+      // Video job (default)
+      const canRemoveWatermark = profile.plan === 'pro' || profile.plan === 'agency'
+      const validatedRemoveWatermark = canRemoveWatermark && Boolean(removeWatermark)
+
+      jobData = {
+        user_id: user.id,
+        job_type: 'video' as const,
+        status: 'pending' as const,
+        source_file_path: filePath,
+        source_file_name: fileName,
+        source_file_size: fileSize || 0,
+        variant_count: validatedVariantCount,
+        settings: {
+          brightness_range: [-0.03, 0.03],
+          saturation_range: [0.97, 1.03],
+          hue_range: [-5, 5],
+          crop_px_range: [1, 3],
+          speed_range: [0.98, 1.02],
+          remove_watermark: validatedRemoveWatermark,
+          add_watermark: Boolean(addWatermark),
+          watermark_path: null,
+        },
+      }
     }
 
     const { data: job, error: jobError } = await serviceClient

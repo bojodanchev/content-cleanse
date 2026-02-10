@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Settings,
   Zap,
+  ImagePlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -13,6 +14,7 @@ import { UserMenu } from '@/components/dashboard/user-menu'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Photo Captions', href: '/captions', icon: ImagePlus },
   { name: 'Library', href: '/library', icon: FolderOpen },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]

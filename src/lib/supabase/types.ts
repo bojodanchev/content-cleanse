@@ -8,9 +8,27 @@ export type Json =
 
 export type JobStatus = 'pending' | 'uploading' | 'processing' | 'completed' | 'failed'
 
+export type JobType = 'video' | 'photo_captions'
+
 export type Plan = 'free' | 'pro' | 'agency'
 
 export type WatermarkPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center'
+
+export type FontSize = 'small' | 'medium' | 'large'
+
+export type CaptionPosition = 'top' | 'center' | 'bottom'
+
+export type CaptionSource = 'manual' | 'ai'
+
+export interface CaptionSettings {
+  captions: string[]
+  font_size: FontSize
+  position: CaptionPosition
+  generate_video: boolean
+  caption_source: CaptionSource
+  ai_niche?: string
+  ai_style?: string
+}
 
 export interface ProcessingSettings {
   brightness_range: [number, number]
@@ -23,6 +41,13 @@ export interface ProcessingSettings {
   watermark_path: string | null
 }
 
+export interface NotificationPreferences {
+  processing_complete: boolean
+  quota_warnings: boolean
+  plan_expiry_reminder: boolean
+  product_updates: boolean
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -33,13 +58,12 @@ export interface Database {
           full_name: string | null
           avatar_url: string | null
           plan: Plan
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
           monthly_quota: number
           quota_used: number
           quota_reset_at: string
           plan_expires_at: string | null
           referred_by: string | null
+          notification_preferences: NotificationPreferences | null
           created_at: string
           updated_at: string
         }
@@ -49,13 +73,12 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           plan?: Plan
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           monthly_quota?: number
           quota_used?: number
           quota_reset_at?: string
           plan_expires_at?: string | null
           referred_by?: string | null
+          notification_preferences?: NotificationPreferences | null
           created_at?: string
           updated_at?: string
         }
@@ -65,13 +88,12 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           plan?: Plan
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           monthly_quota?: number
           quota_used?: number
           quota_reset_at?: string
           plan_expires_at?: string | null
           referred_by?: string | null
+          notification_preferences?: NotificationPreferences | null
           created_at?: string
           updated_at?: string
         }
@@ -80,13 +102,14 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          job_type: JobType
           status: JobStatus
           source_file_path: string | null
           source_file_name: string | null
           source_file_size: number | null
           source_duration: number | null
           variant_count: number
-          settings: ProcessingSettings
+          settings: ProcessingSettings | CaptionSettings
           progress: number
           variants_completed: number
           output_zip_path: string | null
@@ -99,13 +122,14 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          job_type?: JobType
           status?: JobStatus
           source_file_path?: string | null
           source_file_name?: string | null
           source_file_size?: number | null
           source_duration?: number | null
           variant_count?: number
-          settings?: ProcessingSettings
+          settings?: ProcessingSettings | CaptionSettings
           progress?: number
           variants_completed?: number
           output_zip_path?: string | null
@@ -118,13 +142,14 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          job_type?: JobType
           status?: JobStatus
           source_file_path?: string | null
           source_file_name?: string | null
           source_file_size?: number | null
           source_duration?: number | null
           variant_count?: number
-          settings?: ProcessingSettings
+          settings?: ProcessingSettings | CaptionSettings
           progress?: number
           variants_completed?: number
           output_zip_path?: string | null
@@ -143,6 +168,7 @@ export interface Database {
           file_size: number | null
           transformations: Json | null
           file_hash: string | null
+          caption_text: string | null
           created_at: string
         }
         Insert: {
@@ -152,6 +178,7 @@ export interface Database {
           file_size?: number | null
           transformations?: Json | null
           file_hash?: string | null
+          caption_text?: string | null
           created_at?: string
         }
         Update: {
@@ -161,6 +188,7 @@ export interface Database {
           file_size?: number | null
           transformations?: Json | null
           file_hash?: string | null
+          caption_text?: string | null
           created_at?: string
         }
       }

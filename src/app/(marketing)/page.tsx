@@ -98,7 +98,7 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="text-sm text-muted-foreground"
             >
-              No credit card required • 5 free videos per month
+              No signup fee • Pay with crypto • 5 free videos per month
             </motion.p>
           </motion.div>
 
@@ -417,10 +417,10 @@ export default function LandingPage() {
               >
                 {/* Connector line */}
                 {i < 2 && (
-                  <div className="hidden md:block absolute top-12 left-[calc(100%+1rem)] w-[calc(100%-2rem)] h-[2px] bg-gradient-to-r from-primary/50 to-transparent" />
+                  <div className="hidden md:block absolute top-8 left-[60px] w-[calc(100%-60px)] h-[1px] bg-gradient-to-r from-primary/30 to-transparent" />
                 )}
 
-                <div className="text-6xl font-bold text-primary/20 mb-4">
+                <div className="text-6xl font-bold text-primary/40 mb-4">
                   {item.step}
                 </div>
                 <h3 className="text-2xl font-semibold mb-2">{item.title}</h3>
@@ -546,8 +546,8 @@ export default function LandingPage() {
                 a: 'Most videos are processed in under 3 seconds per variant. A batch of 100 variants typically completes in under 5 minutes.',
               },
               {
-                q: 'Can I cancel my subscription anytime?',
-                a: 'Yes, you can cancel anytime. Your subscription will remain active until the end of your billing period.',
+                q: 'How does billing work?',
+                a: 'We use crypto payments for 30-day access periods. There are no auto-recurring charges — simply renew when your plan expires to keep your access.',
               },
             ].map((item, i) => (
               <motion.details
@@ -598,7 +598,7 @@ export default function LandingPage() {
               </Button>
             </Link>
             <p className="text-sm text-muted-foreground mt-4">
-              No credit card required • 5 free videos per month
+              No signup fee • Pay with crypto • 5 free videos per month
             </p>
           </motion.div>
         </div>

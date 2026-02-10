@@ -35,6 +35,15 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# mcp config (contains secrets)
+.mcp.json
+
+# python cache
+__pycache__/
+
+# supabase temp
+supabase/.temp/
+
 # vercel
 .vercel
 

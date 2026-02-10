@@ -199,11 +199,11 @@ export default function PricingPage() {
           {[
             {
               q: 'Can I upgrade or downgrade at any time?',
-              a: 'Yes! You can change your plan at any time. Upgrades take effect immediately, and downgrades take effect at the end of your billing period.',
+              a: 'Yes! You can upgrade at any time by purchasing a higher plan. Your new plan starts immediately with a fresh 30-day period.',
             },
             {
               q: 'What happens if I exceed my quota?',
-              a: "You'll be notified when you're approaching your limit. Once reached, you'll need to upgrade or wait for the next billing cycle to process more videos.",
+              a: "You'll be notified when you're approaching your limit. Once reached, you'll need to upgrade or wait for your quota to reset next month.",
             },
             {
               q: 'How do crypto payments work?',

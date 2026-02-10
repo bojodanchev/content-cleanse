@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { randomBytes } from 'crypto'
 
 function generateCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  const bytes = randomBytes(8)
   let result = ''
   for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
+    result += chars.charAt(bytes[i] % chars.length)
   }
   return result
 }
@@ -139,17 +141,7 @@ export async function PATCH(request: Request) {
 
     const serviceClient = createServiceClient()
 
-    // Check uniqueness
-    const { data: codeCheck } = await serviceClient
-      .from('affiliates')
-      .select('id, user_id')
-      .eq('code', code)
-      .single()
-
-    if (codeCheck && codeCheck.user_id !== user.id) {
-      return NextResponse.json({ error: 'Code is already taken' }, { status: 409 })
-    }
-
+    // Update directly — DB unique constraint on `code` prevents duplicates
     const { data: affiliate, error } = await serviceClient
       .from('affiliates')
       .update({ code })
@@ -158,6 +150,10 @@ export async function PATCH(request: Request) {
       .single()
 
     if (error) {
+      // Unique constraint violation = code already taken
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'Code is already taken' }, { status: 409 })
+      }
       console.error('Affiliate code update error:', error)
       return NextResponse.json({ error: 'Failed to update code' }, { status: 500 })
     }

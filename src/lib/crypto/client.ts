@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { getPlanById } from './plans'
 
 interface CreateChargeParams {
@@ -79,5 +79,6 @@ export function verifyNowPaymentsSignature(
   const computed = createHmac('sha512', secret)
     .update(JSON.stringify(sorted))
     .digest('hex')
-  return computed === signature
+  if (computed.length !== signature.length) return false
+  return timingSafeEqual(Buffer.from(computed), Buffer.from(signature))
 }

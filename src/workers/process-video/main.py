@@ -23,7 +23,10 @@ from datetime import datetime
 # Define the Modal app
 app = modal.App("content-cleanse")
 
-# Container image with FFmpeg and Python dependencies
+# Worker directory for local file references
+_worker_dir = Path(__file__).parent
+
+# Container image with FFmpeg, Pillow, numpy, and bundled caption helpers/fonts
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg")
@@ -31,7 +34,12 @@ image = (
         "supabase",
         "httpx",
         "fastapi[standard]",
+        "Pillow",
+        "numpy",
     )
+    .add_local_dir(str(_worker_dir / "fonts"), remote_path="/assets/fonts")
+    .add_local_file(str(_worker_dir / "text_renderer.py"), remote_path="/helpers/text_renderer.py")
+    .add_local_file(str(_worker_dir / "image_augmenter.py"), remote_path="/helpers/image_augmenter.py")
 )
 
 
@@ -344,6 +352,282 @@ def start_processing(item: dict):
         source_path=item["source_path"],
         variant_count=item["variant_count"],
         settings=item["settings"],
+        user_id=item["user_id"],
+        supabase_url=item["supabase_url"],
+        supabase_key=item["supabase_key"],
+    )
+
+    return {"status": "queued", "call_id": call.object_id}
+
+
+# ============================================================
+# Photo Captions Processing
+# ============================================================
+
+@app.function(
+    image=image,
+    timeout=600,
+    cpu=2,
+    memory=4096,
+)
+def process_captions(
+    job_id: str,
+    source_path: str,
+    captions: List[str],
+    font_size: str,
+    position: str,
+    generate_video: bool,
+    user_id: str,
+    supabase_url: str,
+    supabase_key: str,
+) -> Dict[str, Any]:
+    """
+    Process a photo with captions to create unique image variants.
+
+    For each caption:
+    1. Resize/crop source photo to 1080x1920
+    2. Render caption text with Pillow
+    3. Apply light augmentation (brightness, saturation, color tint)
+    4. Strip metadata and save with randomized JPEG quality
+    5. Upload variant to Supabase Storage
+
+    Optionally generates a slideshow video from all variants.
+    """
+    from supabase import create_client, Client
+    from PIL import Image
+    import sys
+
+    # Add the mount path so Python can find our helper modules
+    sys.path.insert(0, "/helpers")
+    from text_renderer import resize_and_crop, render_caption
+    from image_augmenter import augment_image, save_clean
+
+    supabase: Client = create_client(supabase_url, supabase_key)
+
+    work_dir = Path(f"/tmp/{job_id}")
+    work_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = work_dir / "variants"
+    output_dir.mkdir(exist_ok=True)
+
+    font_path = "/assets/fonts/Anton-Regular.ttf"
+    if not Path(font_path).exists():
+        raise FileNotFoundError(f"Font not found: {font_path}. Check Modal font mount.")
+    variant_count = len(captions)
+
+    try:
+        update_job_status(supabase, job_id, "processing", 0)
+
+        # Download source photo from images bucket
+        print(f"Downloading source photo: {source_path}")
+        response = supabase.storage.from_("images").download(source_path)
+        input_path = work_dir / "input.jpg"
+        input_path.write_bytes(response)
+
+        # Resize/crop once (all variants share the same base)
+        base_img = Image.open(input_path).convert("RGB")
+        base_img = resize_and_crop(base_img)
+
+        variants = []
+        for i, caption in enumerate(captions):
+            variant_name = f"variant_{i+1:03d}.jpg"
+            variant_path = output_dir / variant_name
+
+            # Render caption on a copy of the base image
+            captioned = render_caption(base_img, caption, font_path, font_size, position)
+
+            # Apply light augmentation
+            augmented = augment_image(captioned)
+
+            # Save with metadata stripped
+            save_clean(augmented, variant_path)
+
+            file_size = variant_path.stat().st_size
+            file_hash = calculate_file_hash(str(variant_path))
+
+            variants.append({
+                "name": variant_name,
+                "path": str(variant_path),
+                "hash": file_hash,
+                "size": file_size,
+                "caption": caption,
+            })
+
+            # Upload variant to Supabase Storage
+            variant_storage_path = f"{user_id}/{job_id}/{variant_name}"
+            try:
+                with open(variant_path, "rb") as vf:
+                    supabase.storage.from_("outputs").upload(
+                        variant_storage_path,
+                        vf.read(),
+                        {"content-type": "image/jpeg"},
+                    )
+            except Exception as upload_err:
+                print(f"Warning: Failed to upload variant {variant_name}: {upload_err}")
+
+            # Insert variant record
+            try:
+                supabase.table("variants").insert({
+                    "job_id": job_id,
+                    "file_path": variant_storage_path,
+                    "file_size": file_size,
+                    "file_hash": file_hash,
+                    "caption_text": caption,
+                    "transformations": {"font_size": font_size, "position": position},
+                }).execute()
+            except Exception as db_err:
+                print(f"Warning: Failed to insert variant record {variant_name}: {db_err}")
+
+            progress = int((i + 1) / variant_count * 100)
+            update_job_status(supabase, job_id, "processing", progress, i + 1)
+            print(f"Caption variant {i+1}/{variant_count} complete")
+
+        # Optionally generate slideshow video
+        output_video_path = None
+        if generate_video and len(variants) >= 2:
+            print("Generating slideshow video...")
+            video_path = work_dir / "slideshow.mp4"
+            _generate_slideshow(
+                [Path(v["path"]) for v in variants],
+                video_path,
+            )
+            if video_path.exists():
+                video_storage_path = f"{user_id}/{job_id}/slideshow.mp4"
+                try:
+                    with open(video_path, "rb") as vf:
+                        supabase.storage.from_("outputs").upload(
+                            video_storage_path,
+                            vf.read(),
+                            {"content-type": "video/mp4"},
+                        )
+                    output_video_path = video_storage_path
+                except Exception as vid_err:
+                    print(f"Warning: Failed to upload slideshow video: {vid_err}")
+
+        # Create ZIP archive
+        print("Creating ZIP archive...")
+        zip_path = work_dir / f"{job_id}_variants.zip"
+        create_zip_archive(variants, str(zip_path))
+
+        output_zip_storage = f"{user_id}/{job_id}/variants.zip"
+        try:
+            with open(zip_path, "rb") as f:
+                supabase.storage.from_("outputs").upload(
+                    output_zip_storage,
+                    f.read(),
+                    {"content-type": "application/zip"},
+                )
+        except Exception as zip_err:
+            print(f"Warning: Failed to upload ZIP: {zip_err}")
+            output_zip_storage = None
+
+        # Mark job completed
+        supabase.table("jobs").update({
+            "status": "completed",
+            "progress": 100,
+            "variants_completed": variant_count,
+            "output_zip_path": output_zip_storage,
+            "completed_at": datetime.utcnow().isoformat(),
+        }).eq("id", job_id).execute()
+
+        return {
+            "status": "completed",
+            "variants_created": variant_count,
+            "output_path": output_zip_storage,
+            "video_path": output_video_path,
+        }
+
+    except Exception as e:
+        print(f"Error processing captions: {e}")
+        try:
+            supabase.table("jobs").update({
+                "status": "failed",
+                "error_message": str(e)[:500],
+                "error_code": type(e).__name__,
+            }).eq("id", job_id).execute()
+        except Exception as status_err:
+            print(f"CRITICAL: Failed to update job status to failed: {status_err}")
+        raise
+
+    finally:
+        import shutil
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def _generate_slideshow(
+    image_paths: List[Path],
+    output_path: Path,
+    pause: float = 2.0,
+    scroll: float = 0.2,
+    crf: int = 18,
+    fps: int = 30,
+) -> None:
+    """Generate a slideshow video from captioned images using FFmpeg xfade transitions."""
+    n = len(image_paths)
+    if n < 2:
+        return
+
+    cmd = ["ffmpeg", "-y"]
+
+    slide_duration = pause + scroll
+    for img_path in image_paths:
+        cmd += ["-loop", "1", "-t", str(slide_duration), "-i", str(img_path)]
+
+    filter_parts = []
+    current_input = "[0:v]"
+
+    for i in range(1, n):
+        next_input = f"[{i}:v]"
+        offset = pause + (i - 1) * (pause + scroll)
+
+        if i < n - 1:
+            out_label = f"[v{i}]"
+        else:
+            out_label = "[outv]"
+
+        filter_parts.append(
+            f"{current_input}{next_input}xfade=transition=slideleft:duration={scroll}:offset={offset:.4f}{out_label}"
+        )
+        current_input = out_label
+
+    filter_complex = ";".join(filter_parts)
+
+    cmd += [
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-r", str(fps), "-crf", str(crf),
+        "-map_metadata", "-1", "-fflags", "+bitexact",
+        str(output_path),
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Warning: Slideshow generation failed: {result.stderr[-300:]}")
+
+
+@app.function(image=image)
+@modal.fastapi_endpoint(method="POST")
+def start_caption_processing(item: dict):
+    """
+    Web endpoint to trigger photo caption processing.
+    Called from the Next.js API route via HTTP POST.
+    Spawns process_captions asynchronously and returns immediately.
+    """
+    required = [
+        "job_id", "source_path", "captions", "font_size", "position",
+        "generate_video", "user_id", "supabase_url", "supabase_key",
+    ]
+    missing = [k for k in required if k not in item]
+    if missing:
+        return {"status": "error", "error": f"Missing fields: {missing}"}
+
+    call = process_captions.spawn(
+        job_id=item["job_id"],
+        source_path=item["source_path"],
+        captions=item["captions"],
+        font_size=item["font_size"],
+        position=item["position"],
+        generate_video=item["generate_video"],
         user_id=item["user_id"],
         supabase_url=item["supabase_url"],
         supabase_key=item["supabase_key"],

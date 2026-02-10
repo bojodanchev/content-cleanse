@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   User,
-  CreditCard,
+  Wallet,
   Bell,
   Shield,
   Loader2,
@@ -13,6 +13,7 @@ import {
   Clock,
   AlertTriangle,
   Gift,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { getClient } from '@/lib/supabase/client'
 import { PLANS } from '@/lib/crypto/plans'
-import type { Profile, Payment } from '@/lib/supabase/types'
+import type { Profile, Payment, NotificationPreferences } from '@/lib/supabase/types'
 import { AffiliateSection } from '@/components/dashboard/affiliate-section'
 
 export default function SettingsPage() {
@@ -33,6 +34,15 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [fullName, setFullName] = useState('')
   const [upgrading, setUpgrading] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [notifications, setNotifications] = useState<NotificationPreferences>({
+    processing_complete: true,
+    quota_warnings: true,
+    plan_expiry_reminder: true,
+    product_updates: false,
+  })
 
   const supabase = getClient()
   const router = useRouter()
@@ -57,6 +67,9 @@ export default function SettingsPage() {
     if (data) {
       setProfile(data as Profile)
       setFullName((data as Profile).full_name || '')
+      if ((data as Profile).notification_preferences) {
+        setNotifications((data as Profile).notification_preferences as NotificationPreferences)
+      }
     }
     setLoading(false)
   }
@@ -106,6 +119,38 @@ export default function SettingsPage() {
     setUpgrading(null)
   }
 
+  const handleToggleNotification = async (key: keyof NotificationPreferences) => {
+    if (!profile) return
+    const updated = { ...notifications, [key]: !notifications[key] }
+    setNotifications(updated)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ notification_preferences: updated } as any)
+      .eq('id', profile.id)
+    if (error) {
+      setNotifications(notifications)
+      console.error('Failed to update notifications:', error)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    try {
+      const response = await fetch('/api/account/delete', { method: 'DELETE' })
+      const data = await response.json()
+      if (data.success) {
+        await supabase.auth.signOut()
+        router.push('/')
+      } else {
+        console.error('Delete failed:', data.error)
+        setDeleting(false)
+      }
+    } catch (error) {
+      console.error('Delete error:', error)
+      setDeleting(false)
+    }
+  }
+
   const currentPlan = PLANS.find((p) => p.id === profile?.plan) || PLANS[0]
 
   const isExpired =
@@ -144,7 +189,7 @@ export default function SettingsPage() {
             Profile
           </TabsTrigger>
           <TabsTrigger value="billing" className="gap-2">
-            <CreditCard className="w-4 h-4" />
+            <Wallet className="w-4 h-4" />
             Billing
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
@@ -215,16 +260,70 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between p-4 rounded-lg border border-destructive/30 bg-destructive/5">
-                <div>
-                  <p className="font-medium">Delete Account</p>
-                  <p className="text-sm text-muted-foreground">
-                    Permanently delete your account and all data
-                  </p>
+              <div className="p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Delete Account</p>
+                    <p className="text-sm text-muted-foreground">
+                      Permanently delete your account and all data
+                    </p>
+                  </div>
+                  {!showDeleteConfirm && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Account
+                    </Button>
+                  )}
                 </div>
-                <Button variant="destructive" size="sm">
-                  Delete Account
-                </Button>
+
+                {showDeleteConfirm && (
+                  <div className="mt-4 pt-4 border-t border-destructive/20 space-y-3">
+                    <p className="text-sm text-destructive font-medium">
+                      This action cannot be undone. All your data, videos, and settings will be permanently deleted.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="deleteConfirm" className="text-sm">
+                        Type <span className="font-mono font-bold">DELETE</span> to confirm
+                      </Label>
+                      <Input
+                        id="deleteConfirm"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="Type DELETE"
+                        className="bg-secondary/50 max-w-xs"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={deleteConfirmText !== 'DELETE' || deleting}
+                        onClick={handleDeleteAccount}
+                      >
+                        {deleting ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 mr-2" />
+                        )}
+                        {deleting ? 'Deleting...' : 'Permanently Delete'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowDeleteConfirm(false)
+                          setDeleteConfirmText('')
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -236,7 +335,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Current Plan</CardTitle>
               <CardDescription>
-                Manage your subscription
+                Manage your plan
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -455,47 +554,32 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {[
-                {
-                  title: 'Processing Complete',
-                  description: 'Get notified when your videos finish processing',
-                  enabled: true,
-                },
-                {
-                  title: 'Quota Warnings',
-                  description: 'Alert when approaching monthly quota limit',
-                  enabled: true,
-                },
-                {
-                  title: 'Plan Expiry Reminder',
-                  description: 'Reminder before your plan expires',
-                  enabled: true,
-                },
-                {
-                  title: 'Product Updates',
-                  description: 'News about new features and improvements',
-                  enabled: false,
-                },
-              ].map((notification, i) => (
+              {([
+                { key: 'processing_complete', title: 'Processing Complete', description: 'Get notified when your videos finish processing' },
+                { key: 'quota_warnings', title: 'Quota Warnings', description: 'Alert when approaching monthly quota limit' },
+                { key: 'plan_expiry_reminder', title: 'Plan Expiry Reminder', description: 'Reminder before your plan expires' },
+                { key: 'product_updates', title: 'Product Updates', description: 'News about new features and improvements' },
+              ] as { key: keyof NotificationPreferences; title: string; description: string }[]).map((item) => (
                 <div
-                  key={i}
+                  key={item.key}
                   className="flex items-center justify-between py-3"
                 >
                   <div>
-                    <p className="font-medium">{notification.title}</p>
+                    <p className="font-medium">{item.title}</p>
                     <p className="text-sm text-muted-foreground">
-                      {notification.description}
+                      {item.description}
                     </p>
                   </div>
                   <button
+                    onClick={() => handleToggleNotification(item.key)}
                     className={`w-12 h-6 rounded-full transition-colors ${
-                      notification.enabled
+                      notifications[item.key]
                         ? 'bg-primary'
                         : 'bg-secondary'
                     } relative`}
                   >
                     <motion.div
-                      animate={{ x: notification.enabled ? 24 : 4 }}
+                      animate={{ x: notifications[item.key] ? 24 : 4 }}
                       className="w-4 h-4 rounded-full bg-white absolute top-1"
                     />
                   </button>
