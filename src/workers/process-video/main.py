@@ -39,6 +39,8 @@ image = (
         "insightface",
         "onnxruntime",
         "opencv-python-headless",
+        "torch",
+        "torchvision",
         "gfpgan",
         "basicsr",
         "facexlib",
