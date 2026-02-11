@@ -32,6 +32,16 @@ interface ModalCaptionJobRequest {
   userId: string
 }
 
+interface ModalFaceswapJobRequest {
+  jobId: string
+  sourcePath: string
+  sourceType: 'video' | 'image'
+  facePath: string
+  variantCount: number
+  swapOnly: boolean
+  userId: string
+}
+
 interface ModalJobResponse {
   status: 'queued' | 'error'
   callId?: string
@@ -157,6 +167,73 @@ export async function triggerCaptionProcessing(
     }
   } catch (error) {
     console.error('Failed to trigger Modal caption job:', error)
+    return {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+export async function triggerFaceswapProcessing(
+  request: ModalFaceswapJobRequest
+): Promise<ModalJobResponse> {
+  const endpointUrl = process.env.MODAL_ENDPOINT_URL
+
+  if (!endpointUrl) {
+    console.error('MODAL_ENDPOINT_URL not configured')
+    return { status: 'error', error: 'Modal endpoint not configured' }
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase credentials not configured')
+    return { status: 'error', error: 'Supabase credentials not configured' }
+  }
+
+  // Faceswap endpoint on the same Modal app
+  const faceswapEndpointUrl = endpointUrl.replace(
+    'start-processing',
+    'start-faceswap-processing'
+  )
+
+  try {
+    const response = await fetch(faceswapEndpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        job_id: request.jobId,
+        source_path: request.sourcePath,
+        source_type: request.sourceType,
+        face_path: request.facePath,
+        variant_count: request.variantCount,
+        swap_only: request.swapOnly,
+        user_id: request.userId,
+        supabase_url: supabaseUrl,
+        supabase_key: supabaseKey,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Modal faceswap endpoint error (${response.status}): ${error}`)
+    }
+
+    const result = await response.json()
+
+    if (result.status === 'error') {
+      return { status: 'error', error: result.error }
+    }
+
+    return {
+      status: 'queued',
+      callId: result.call_id,
+    }
+  } catch (error) {
+    console.error('Failed to trigger Modal faceswap job:', error)
     return {
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',

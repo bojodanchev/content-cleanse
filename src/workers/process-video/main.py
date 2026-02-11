@@ -26,20 +26,50 @@ app = modal.App("content-cleanse")
 # Worker directory for local file references
 _worker_dir = Path(__file__).parent
 
-# Container image with FFmpeg, Pillow, numpy, and bundled caption helpers/fonts
+# Container image with FFmpeg, Pillow, InsightFace, GFPGAN, and bundled helpers
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("ffmpeg")
+    .apt_install("ffmpeg", "libgl1-mesa-glx", "libglib2.0-0")
     .pip_install(
         "supabase",
         "httpx",
         "fastapi[standard]",
         "Pillow",
         "numpy",
+        "insightface",
+        "onnxruntime",
+        "opencv-python-headless",
+        "gfpgan",
+        "basicsr",
+        "facexlib",
     )
     .add_local_dir(str(_worker_dir / "fonts"), remote_path="/assets/fonts")
     .add_local_file(str(_worker_dir / "text_renderer.py"), remote_path="/helpers/text_renderer.py")
     .add_local_file(str(_worker_dir / "image_augmenter.py"), remote_path="/helpers/image_augmenter.py")
+    .add_local_file(str(_worker_dir / "face_swapper.py"), remote_path="/helpers/face_swapper.py")
+    .run_commands(
+        # Download InsightFace buffalo_l model
+        "mkdir -p /models/insightface/models/buffalo_l && "
+        "python -c \""
+        "from insightface.utils.storage import download_onnx; "
+        "import insightface; "
+        "app = insightface.app.FaceAnalysis(name='buffalo_l', root='/models/insightface'); "
+        "app.prepare(ctx_id=0, det_size=(640, 640))"
+        "\"",
+        # Download inswapper_128 model
+        "pip install huggingface_hub && "
+        "python -c \""
+        "from huggingface_hub import hf_hub_download; "
+        "hf_hub_download(repo_id='deepinsight/inswapper', filename='inswapper_128.onnx', local_dir='/models')"
+        "\"",
+        # Download GFPGAN model
+        "python -c \""
+        "from basicsr.utils.download_util import load_file_from_url; "
+        "load_file_from_url("
+        "  'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth', "
+        "  model_dir='/models', file_name='GFPGANv1.4.pth')"
+        "\""
+    )
 )
 
 
@@ -553,6 +583,407 @@ def process_captions(
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
+# ============================================================
+# Faceswap Processing
+# ============================================================
+
+@app.function(
+    image=image,
+    timeout=900,  # 15 minutes max (video frame-by-frame is slow)
+    cpu=4,
+    memory=8192,  # 8GB RAM for models
+)
+def process_faceswap(
+    job_id: str,
+    source_path: str,
+    source_type: str,  # "video" | "image"
+    face_path: str,
+    variant_count: int,
+    swap_only: bool,
+    user_id: str,
+    supabase_url: str,
+    supabase_key: str,
+) -> Dict[str, Any]:
+    """
+    Process a video or image with face swapping.
+
+    For images: swap face, optionally generate augmented variants.
+    For videos: extract frames, swap face per frame, reassemble, optionally generate FFmpeg variants.
+    """
+    from supabase import create_client, Client
+    import cv2
+    import sys
+
+    sys.path.insert(0, "/helpers")
+    from face_swapper import (
+        _get_face_analyser,
+        _get_swapper,
+        _get_enhancer,
+        swap_face_in_image,
+    )
+
+    supabase: Client = create_client(supabase_url, supabase_key)
+
+    work_dir = Path(f"/tmp/{job_id}")
+    work_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = work_dir / "variants"
+    output_dir.mkdir(exist_ok=True)
+
+    try:
+        update_job_status(supabase, job_id, "processing", 0)
+
+        # Initialize models once (reused across all frames/variants)
+        print("Loading face swap models...")
+        analyser = _get_face_analyser()
+        swapper = _get_swapper()
+        enhancer = _get_enhancer()
+
+        # Download reference face
+        print(f"Downloading reference face: {face_path}")
+        ref_bytes = supabase.storage.from_("faces").download(face_path)
+        ref_path = work_dir / "reference.jpg"
+        ref_path.write_bytes(ref_bytes)
+        ref_img = cv2.imread(str(ref_path))
+
+        if ref_img is None:
+            raise ValueError("Failed to read reference face image")
+
+        if source_type == "image":
+            result = _process_faceswap_image(
+                supabase, job_id, source_path, ref_img,
+                variant_count, swap_only, user_id, work_dir, output_dir,
+                analyser, swapper, enhancer,
+            )
+        else:
+            result = _process_faceswap_video(
+                supabase, job_id, source_path, ref_img,
+                variant_count, swap_only, user_id, work_dir, output_dir,
+                analyser, swapper, enhancer,
+            )
+
+        return result
+
+    except Exception as e:
+        print(f"Error processing faceswap: {e}")
+        try:
+            supabase.table("jobs").update({
+                "status": "failed",
+                "error_message": str(e)[:500],
+                "error_code": type(e).__name__,
+            }).eq("id", job_id).execute()
+        except Exception as status_err:
+            print(f"CRITICAL: Failed to update job status: {status_err}")
+        raise
+
+    finally:
+        import shutil
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def _process_faceswap_image(
+    supabase, job_id, source_path, ref_img,
+    variant_count, swap_only, user_id, work_dir, output_dir,
+    analyser, swapper, enhancer,
+):
+    """Handle faceswap for a single image."""
+    import cv2
+    import sys
+    sys.path.insert(0, "/helpers")
+    from face_swapper import swap_face_in_image
+
+    # Download source image
+    print(f"Downloading source image: {source_path}")
+    src_bytes = supabase.storage.from_("images").download(source_path)
+    src_path = work_dir / "source.jpg"
+    src_path.write_bytes(src_bytes)
+    source_img = cv2.imread(str(src_path))
+
+    if source_img is None:
+        raise ValueError("Failed to read source image")
+
+    # Perform face swap
+    print("Swapping face...")
+    swapped = swap_face_in_image(source_img, ref_img, analyser, swapper, enhancer)
+
+    if swapped is None:
+        raise ValueError("No face detected in source image")
+
+    update_job_status(supabase, job_id, "processing", 30)
+
+    if swap_only:
+        # Single output
+        out_path = output_dir / "faceswap_001.jpg"
+        cv2.imwrite(str(out_path), swapped, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        file_size = out_path.stat().st_size
+        file_hash = calculate_file_hash(str(out_path))
+
+        storage_path = f"{user_id}/{job_id}/faceswap_001.jpg"
+        with open(out_path, "rb") as f:
+            supabase.storage.from_("outputs").upload(
+                storage_path, f.read(), {"content-type": "image/jpeg"}
+            )
+
+        supabase.table("variants").insert({
+            "job_id": job_id,
+            "file_path": storage_path,
+            "file_size": file_size,
+            "file_hash": file_hash,
+            "transformations": {"type": "faceswap"},
+        }).execute()
+
+        total_variants = 1
+        variants = [{"name": "faceswap_001.jpg", "path": str(out_path)}]
+    else:
+        # Generate augmented variants from the swapped image
+        from image_augmenter import augment_image, save_clean
+        from PIL import Image as PILImage
+
+        swapped_pil = PILImage.fromarray(cv2.cvtColor(swapped, cv2.COLOR_BGR2RGB))
+        actual_count = max(1, variant_count)
+        variants = []
+
+        for i in range(actual_count):
+            variant_name = f"faceswap_{i+1:03d}.jpg"
+            variant_path = output_dir / variant_name
+
+            augmented = augment_image(swapped_pil.copy())
+            save_clean(augmented, variant_path)
+
+            file_size = variant_path.stat().st_size
+            file_hash = calculate_file_hash(str(variant_path))
+
+            storage_path = f"{user_id}/{job_id}/{variant_name}"
+            with open(variant_path, "rb") as f:
+                supabase.storage.from_("outputs").upload(
+                    storage_path, f.read(), {"content-type": "image/jpeg"}
+                )
+
+            supabase.table("variants").insert({
+                "job_id": job_id,
+                "file_path": storage_path,
+                "file_size": file_size,
+                "file_hash": file_hash,
+                "transformations": {"type": "faceswap_variant", "index": i + 1},
+            }).execute()
+
+            variants.append({"name": variant_name, "path": str(variant_path)})
+
+            progress = 30 + int((i + 1) / actual_count * 60)
+            update_job_status(supabase, job_id, "processing", progress, i + 1)
+            print(f"Variant {i+1}/{actual_count} complete")
+
+        total_variants = actual_count
+
+    # Create ZIP
+    print("Creating ZIP archive...")
+    zip_path = work_dir / f"{job_id}_faceswap.zip"
+    create_zip_archive(variants, str(zip_path))
+
+    zip_storage = f"{user_id}/{job_id}/faceswap.zip"
+    with open(zip_path, "rb") as f:
+        supabase.storage.from_("outputs").upload(
+            zip_storage, f.read(), {"content-type": "application/zip"}
+        )
+
+    supabase.table("jobs").update({
+        "status": "completed",
+        "progress": 100,
+        "variants_completed": total_variants,
+        "output_zip_path": zip_storage,
+        "completed_at": datetime.utcnow().isoformat(),
+    }).eq("id", job_id).execute()
+
+    return {"status": "completed", "variants_created": total_variants, "output_path": zip_storage}
+
+
+def _process_faceswap_video(
+    supabase, job_id, source_path, ref_img,
+    variant_count, swap_only, user_id, work_dir, output_dir,
+    analyser, swapper, enhancer,
+):
+    """Handle faceswap for a video (frame-by-frame)."""
+    import cv2
+    import sys
+    sys.path.insert(0, "/helpers")
+    from face_swapper import swap_face_in_image
+
+    # Download source video
+    print(f"Downloading source video: {source_path}")
+    src_bytes = supabase.storage.from_("videos").download(source_path)
+    src_path = work_dir / "source.mp4"
+    src_path.write_bytes(src_bytes)
+
+    # Extract frames
+    frames_dir = work_dir / "frames"
+    frames_dir.mkdir(exist_ok=True)
+    swapped_frames_dir = work_dir / "swapped_frames"
+    swapped_frames_dir.mkdir(exist_ok=True)
+
+    print("Extracting frames...")
+    cmd = [
+        "ffmpeg", "-y", "-i", str(src_path),
+        "-qscale:v", "2",
+        str(frames_dir / "frame_%06d.png"),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg frame extraction failed: {result.stderr}")
+
+    frame_files = sorted(frames_dir.glob("frame_*.png"))
+    total_frames = len(frame_files)
+    print(f"Extracted {total_frames} frames")
+
+    if total_frames == 0:
+        raise ValueError("No frames extracted from video")
+
+    update_job_status(supabase, job_id, "processing", 10)
+
+    # Swap face in each frame
+    print("Swapping faces frame-by-frame...")
+    for i, frame_path in enumerate(frame_files):
+        frame = cv2.imread(str(frame_path))
+        swapped = swap_face_in_image(frame, ref_img, analyser, swapper, enhancer)
+
+        out_frame_path = swapped_frames_dir / frame_path.name
+        if swapped is not None:
+            cv2.imwrite(str(out_frame_path), swapped)
+        else:
+            # No face in this frame — keep original
+            cv2.imwrite(str(out_frame_path), frame)
+
+        if (i + 1) % 30 == 0 or i == total_frames - 1:
+            progress = 10 + int((i + 1) / total_frames * 60)
+            update_job_status(supabase, job_id, "processing", progress)
+            print(f"  Frame {i+1}/{total_frames}")
+
+    # Get original video FPS and audio info
+    video_info = get_video_info(str(src_path))
+    fps = "30"
+    for stream in video_info.get("streams", []):
+        if stream.get("codec_type") == "video":
+            r_frame_rate = stream.get("r_frame_rate", "30/1")
+            if "/" in r_frame_rate:
+                num, den = r_frame_rate.split("/")
+                fps = str(round(int(num) / int(den)))
+            else:
+                fps = r_frame_rate
+            break
+
+    # Reassemble video from swapped frames + original audio
+    print("Reassembling video...")
+    swapped_video = work_dir / "swapped.mp4"
+    cmd = [
+        "ffmpeg", "-y",
+        "-framerate", fps,
+        "-i", str(swapped_frames_dir / "frame_%06d.png"),
+        "-i", str(src_path),
+        "-map", "0:v",
+        "-map", "1:a?",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
+        "-map_metadata", "-1",
+        "-fflags", "+bitexact",
+        str(swapped_video),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg reassembly failed: {result.stderr}")
+
+    update_job_status(supabase, job_id, "processing", 75)
+
+    if swap_only:
+        # Single output
+        final_name = "faceswap_001.mp4"
+        final_path = output_dir / final_name
+        import shutil
+        shutil.copy2(str(swapped_video), str(final_path))
+
+        file_size = final_path.stat().st_size
+        file_hash = calculate_file_hash(str(final_path))
+
+        storage_path = f"{user_id}/{job_id}/{final_name}"
+        with open(final_path, "rb") as f:
+            supabase.storage.from_("outputs").upload(
+                storage_path, f.read(), {"content-type": "video/mp4"}
+            )
+
+        supabase.table("variants").insert({
+            "job_id": job_id,
+            "file_path": storage_path,
+            "file_size": file_size,
+            "file_hash": file_hash,
+            "transformations": {"type": "faceswap"},
+        }).execute()
+
+        total_variants = 1
+        variants = [{"name": final_name, "path": str(final_path)}]
+    else:
+        # Generate FFmpeg variants from the swapped video
+        actual_count = max(1, variant_count)
+        variants = []
+        default_settings = {
+            "brightness_range": [-0.03, 0.03],
+            "saturation_range": [0.97, 1.03],
+            "hue_range": [-5, 5],
+            "crop_px_range": [1, 3],
+            "speed_range": [0.98, 1.02],
+        }
+
+        for i in range(actual_count):
+            variant_name = f"faceswap_{i+1:03d}.mp4"
+            variant_path = output_dir / variant_name
+
+            transformations = generate_transformations(default_settings)
+            process_single_variant(str(swapped_video), str(variant_path), transformations)
+
+            file_size = variant_path.stat().st_size
+            file_hash = calculate_file_hash(str(variant_path))
+
+            storage_path = f"{user_id}/{job_id}/{variant_name}"
+            with open(variant_path, "rb") as f:
+                supabase.storage.from_("outputs").upload(
+                    storage_path, f.read(), {"content-type": "video/mp4"}
+                )
+
+            supabase.table("variants").insert({
+                "job_id": job_id,
+                "file_path": storage_path,
+                "file_size": file_size,
+                "file_hash": file_hash,
+                "transformations": {**transformations, "type": "faceswap_variant"},
+            }).execute()
+
+            variants.append({"name": variant_name, "path": str(variant_path)})
+
+            progress = 75 + int((i + 1) / actual_count * 20)
+            update_job_status(supabase, job_id, "processing", progress, i + 1)
+            print(f"Variant {i+1}/{actual_count} complete")
+
+        total_variants = actual_count
+
+    # Create ZIP
+    print("Creating ZIP archive...")
+    zip_path = work_dir / f"{job_id}_faceswap.zip"
+    create_zip_archive(variants, str(zip_path))
+
+    zip_storage = f"{user_id}/{job_id}/faceswap.zip"
+    with open(zip_path, "rb") as f:
+        supabase.storage.from_("outputs").upload(
+            zip_storage, f.read(), {"content-type": "application/zip"}
+        )
+
+    supabase.table("jobs").update({
+        "status": "completed",
+        "progress": 100,
+        "variants_completed": total_variants,
+        "output_zip_path": zip_storage,
+        "completed_at": datetime.utcnow().isoformat(),
+    }).eq("id", job_id).execute()
+
+    return {"status": "completed", "variants_created": total_variants, "output_path": zip_storage}
+
+
 def _generate_slideshow(
     image_paths: List[Path],
     output_path: Path,
@@ -628,6 +1059,42 @@ def start_caption_processing(item: dict):
         font_size=item["font_size"],
         position=item["position"],
         generate_video=item["generate_video"],
+        user_id=item["user_id"],
+        supabase_url=item["supabase_url"],
+        supabase_key=item["supabase_key"],
+    )
+
+    return {"status": "queued", "call_id": call.object_id}
+
+
+# ============================================================
+# Faceswap Processing Endpoint
+# ============================================================
+
+@app.function(image=image)
+@modal.fastapi_endpoint(method="POST")
+def start_faceswap_processing(item: dict):
+    """
+    Web endpoint to trigger faceswap processing.
+    Called from the Next.js API route via HTTP POST.
+    Spawns process_faceswap asynchronously and returns immediately.
+    """
+    required = [
+        "job_id", "source_path", "source_type", "face_path",
+        "variant_count", "swap_only", "user_id",
+        "supabase_url", "supabase_key",
+    ]
+    missing = [k for k in required if k not in item]
+    if missing:
+        return {"status": "error", "error": f"Missing fields: {missing}"}
+
+    call = process_faceswap.spawn(
+        job_id=item["job_id"],
+        source_path=item["source_path"],
+        source_type=item["source_type"],
+        face_path=item["face_path"],
+        variant_count=item["variant_count"],
+        swap_only=item["swap_only"],
         user_id=item["user_id"],
         supabase_url=item["supabase_url"],
         supabase_key=item["supabase_key"],

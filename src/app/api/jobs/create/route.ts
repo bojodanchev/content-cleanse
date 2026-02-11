@@ -41,10 +41,23 @@ export async function POST(request: Request) {
     const validatedVariantCount = Math.min(Math.max(1, variantCount || 10), maxVariants)
 
     const isPhotoCaptions = jobType === 'photo_captions'
+    const isFaceswap = jobType === 'faceswap'
 
     let jobData
 
-    if (isPhotoCaptions) {
+    if (isFaceswap) {
+      // Faceswap job — store face settings
+      jobData = {
+        user_id: user.id,
+        job_type: 'faceswap' as const,
+        status: 'pending' as const,
+        source_file_path: filePath,
+        source_file_name: fileName,
+        source_file_size: fileSize || 0,
+        variant_count: settings?.swap_only ? 1 : Math.min(Math.max(1, variantCount || 1), maxVariants),
+        settings: settings || {},
+      }
+    } else if (isPhotoCaptions) {
       // Photo captions job — store caption settings as-is
       jobData = {
         user_id: user.id,

@@ -6,6 +6,7 @@ export interface Plan {
   features: string[]
   quota: number
   variantLimit: number
+  faceswapLimit: number
   popular?: boolean
 }
 
@@ -19,9 +20,11 @@ export const PLANS: Plan[] = [
     price: 0,
     quota: 5,
     variantLimit: 10,
+    faceswapLimit: 2,
     features: [
       '5 videos per month',
       '10 variants per video',
+      '2 face swaps per month',
       'Basic transformations',
       'Download as ZIP',
     ],
@@ -33,10 +36,12 @@ export const PLANS: Plan[] = [
     price: 99,
     quota: 100,
     variantLimit: 100,
+    faceswapLimit: 50,
     popular: true,
     features: [
       '100 videos per month',
       '100 variants per video',
+      '50 face swaps per month',
       'AI watermark removal',
       'Custom watermark overlay',
       'Priority processing',
@@ -50,9 +55,11 @@ export const PLANS: Plan[] = [
     price: 249,
     quota: 10000,
     variantLimit: 100,
+    faceswapLimit: 10000,
     features: [
       'Unlimited videos',
       '100 variants per video',
+      'Unlimited face swaps',
       'AI watermark removal',
       'Custom watermark overlay',
       'API access',

@@ -8,7 +8,7 @@ export type Json =
 
 export type JobStatus = 'pending' | 'uploading' | 'processing' | 'completed' | 'failed'
 
-export type JobType = 'video' | 'photo_captions'
+export type JobType = 'video' | 'photo_captions' | 'faceswap'
 
 export type Plan = 'free' | 'pro' | 'agency'
 
@@ -28,6 +28,14 @@ export interface CaptionSettings {
   caption_source: CaptionSource
   ai_niche?: string
   ai_style?: string
+}
+
+export interface FaceswapSettings {
+  face_id: string
+  face_path: string
+  source_type: 'video' | 'image'
+  swap_only: boolean
+  variant_count: number
 }
 
 export interface ProcessingSettings {
@@ -109,7 +117,7 @@ export interface Database {
           source_file_size: number | null
           source_duration: number | null
           variant_count: number
-          settings: ProcessingSettings | CaptionSettings
+          settings: ProcessingSettings | CaptionSettings | FaceswapSettings
           progress: number
           variants_completed: number
           output_zip_path: string | null
@@ -389,6 +397,29 @@ export interface Database {
           paid_at?: string | null
         }
       }
+      faces: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          file_path: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          file_path: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          file_path?: string
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -439,3 +470,6 @@ export type Referral = Database['public']['Tables']['referrals']['Row']
 export type ReferralInsert = Database['public']['Tables']['referrals']['Insert']
 export type Commission = Database['public']['Tables']['commissions']['Row']
 export type CommissionInsert = Database['public']['Tables']['commissions']['Insert']
+
+export type Face = Database['public']['Tables']['faces']['Row']
+export type FaceInsert = Database['public']['Tables']['faces']['Insert']
