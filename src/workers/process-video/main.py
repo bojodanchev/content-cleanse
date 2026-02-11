@@ -35,7 +35,7 @@ image = (
         "httpx",
         "fastapi[standard]",
         "Pillow",
-        "numpy",
+        "numpy<2",
         "insightface",
         "onnxruntime",
         "opencv-python-headless",
