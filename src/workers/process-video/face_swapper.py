@@ -13,7 +13,7 @@ from typing import Optional
 
 # Model paths (baked into Modal container image)
 MODELS_DIR = "/models"
-INSIGHTFACE_DIR = os.path.join(MODELS_DIR, "insightface")
+INSIGHTFACE_DIR = "/root/.insightface"
 SWAP_MODEL_PATH = os.path.join(MODELS_DIR, "inswapper_128.onnx")
 GFPGAN_MODEL_PATH = os.path.join(MODELS_DIR, "GFPGANv1.4.pth")
 

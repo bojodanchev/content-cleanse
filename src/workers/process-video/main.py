@@ -43,33 +43,28 @@ image = (
         "basicsr",
         "facexlib",
     )
+    .pip_install("huggingface_hub")
+    .apt_install("wget", "unzip")
+    .run_commands(
+        # Download InsightFace buffalo_l model pack from GitHub releases (official source)
+        "mkdir -p /root/.insightface/models/buffalo_l && "
+        "wget -O /tmp/buffalo_l.zip "
+        "'https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip' && "
+        "unzip -o /tmp/buffalo_l.zip -d /root/.insightface/models/buffalo_l/ && "
+        "ls -la /root/.insightface/models/buffalo_l/ && "
+        "rm /tmp/buffalo_l.zip",
+        # Download inswapper_128 model from Hugging Face (public mirror)
+        "mkdir -p /models && "
+        "wget -O /models/inswapper_128.onnx "
+        "'https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx'",
+        # Download GFPGAN model
+        "wget -O /models/GFPGANv1.4.pth "
+        "'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth'",
+    )
     .add_local_dir(str(_worker_dir / "fonts"), remote_path="/assets/fonts")
     .add_local_file(str(_worker_dir / "text_renderer.py"), remote_path="/helpers/text_renderer.py")
     .add_local_file(str(_worker_dir / "image_augmenter.py"), remote_path="/helpers/image_augmenter.py")
     .add_local_file(str(_worker_dir / "face_swapper.py"), remote_path="/helpers/face_swapper.py")
-    .run_commands(
-        # Download InsightFace buffalo_l model
-        "mkdir -p /models/insightface/models/buffalo_l && "
-        "python -c \""
-        "from insightface.utils.storage import download_onnx; "
-        "import insightface; "
-        "app = insightface.app.FaceAnalysis(name='buffalo_l', root='/models/insightface'); "
-        "app.prepare(ctx_id=0, det_size=(640, 640))"
-        "\"",
-        # Download inswapper_128 model
-        "pip install huggingface_hub && "
-        "python -c \""
-        "from huggingface_hub import hf_hub_download; "
-        "hf_hub_download(repo_id='deepinsight/inswapper', filename='inswapper_128.onnx', local_dir='/models')"
-        "\"",
-        # Download GFPGAN model
-        "python -c \""
-        "from basicsr.utils.download_util import load_file_from_url; "
-        "load_file_from_url("
-        "  'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth', "
-        "  model_dir='/models', file_name='GFPGANv1.4.pth')"
-        "\""
-    )
 )
 
 
