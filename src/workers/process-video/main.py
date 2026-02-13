@@ -39,8 +39,8 @@ image = (
         "insightface",
         "onnxruntime",
         "opencv-python-headless",
-        "torch==2.2.2",
-        "torchvision==0.17.2",
+        "torch==2.1.2",
+        "torchvision==0.16.2",
         "gfpgan",
         "basicsr",
         "facexlib",
@@ -48,6 +48,13 @@ image = (
     .pip_install("huggingface_hub")
     .apt_install("wget", "unzip")
     .run_commands(
+        # Shim for basicsr: it imports torchvision.transforms.functional_tensor
+        # which was removed in torchvision 0.17+. Create a compatibility shim.
+        "python -c \""
+        "import torchvision, os; "
+        "p = os.path.join(os.path.dirname(torchvision.__file__), 'transforms', 'functional_tensor.py'); "
+        "open(p, 'w').write('from torchvision.transforms.functional import *\\n')"
+        "\"",
         # Download InsightFace buffalo_l model pack from GitHub releases (official source)
         "mkdir -p /root/.insightface/models/buffalo_l && "
         "wget -O /tmp/buffalo_l.zip "
