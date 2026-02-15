@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function AuthLayout({
   children,
@@ -10,12 +11,13 @@ export default function AuthLayout({
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-10 p-6">
         <Link href="/" className="flex items-center gap-2 w-fit">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <span className="text-white font-bold text-sm">CC</span>
-          </div>
-          <span className="font-semibold text-lg tracking-tight">
-            Content<span className="text-primary">Cleanse</span>
-          </span>
+          <Image
+            src="/logo.png"
+            alt="Content Cleanse"
+            width={180}
+            height={98}
+            className="h-10 w-auto"
+          />
         </Link>
       </header>
 

@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { ReferralTracker } from '@/components/marketing/referral-tracker'
 
@@ -14,12 +15,14 @@ export default function MarketingLayout({
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl">
         <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <span className="text-white font-bold text-sm">CC</span>
-            </div>
-            <span className="font-semibold text-lg tracking-tight">
-              Content<span className="text-primary">Cleanse</span>
-            </span>
+            <Image
+              src="/logo.png"
+              alt="Content Cleanse"
+              width={180}
+              height={98}
+              className="h-10 w-auto"
+              priority
+            />
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
@@ -75,12 +78,13 @@ export default function MarketingLayout({
             {/* Brand */}
             <div className="col-span-2 md:col-span-1">
               <Link href="/" className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">CC</span>
-                </div>
-                <span className="font-semibold tracking-tight">
-                  Content<span className="text-primary">Cleanse</span>
-                </span>
+                <Image
+                  src="/logo.png"
+                  alt="Content Cleanse"
+                  width={150}
+                  height={82}
+                  className="h-8 w-auto"
+                />
               </Link>
               <p className="text-sm text-muted-foreground">
                 Transform your content into unlimited unique variants.

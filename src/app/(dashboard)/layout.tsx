@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import {
   LayoutDashboard,
@@ -80,12 +81,13 @@ export default async function DashboardLayout({
         {/* Logo */}
         <div className="p-6 border-b border-border/40">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <span className="text-white font-bold text-sm">CC</span>
-            </div>
-            <span className="font-semibold tracking-tight">
-              Content<span className="text-primary">Cleanse</span>
-            </span>
+            <Image
+              src="/logo.png"
+              alt="Content Cleanse"
+              width={160}
+              height={87}
+              className="h-9 w-auto"
+            />
           </Link>
         </div>
 
