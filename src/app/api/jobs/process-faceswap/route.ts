@@ -58,14 +58,38 @@ export async function POST(request: Request) {
     ) {
       await serviceClient
         .from('profiles')
-        .update({ plan: 'free', monthly_quota: 5, quota_used: 0 })
+        .update({ plan: 'free', monthly_quota: 5, quota_used: 0, plan_expires_at: null })
         .eq('id', user.id)
       profile.plan = 'free'
       profile.monthly_quota = 5
       profile.quota_used = 0
     }
 
-    // Atomic quota consumption
+    // Check faceswap-specific monthly limit
+    const planConfig = getPlanById(profile.plan)
+    const faceswapLimit = planConfig?.faceswapLimit ?? 2
+
+    // Count faceswap jobs this month
+    const startOfMonth = new Date()
+    startOfMonth.setDate(1)
+    startOfMonth.setHours(0, 0, 0, 0)
+
+    const { count: faceswapCount } = await serviceClient
+      .from('jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('job_type', 'faceswap')
+      .in('status', ['processing', 'completed'])
+      .gte('created_at', startOfMonth.toISOString())
+
+    if ((faceswapCount ?? 0) >= faceswapLimit) {
+      return NextResponse.json(
+        { error: `Face swap limit reached (${faceswapLimit}/month). Upgrade your plan for more.` },
+        { status: 403 }
+      )
+    }
+
+    // Atomic quota consumption (shared quota for all job types)
     const { data: quotaConsumed } = await serviceClient.rpc('try_consume_quota', {
       p_user_id: user.id,
     })
@@ -78,7 +102,6 @@ export async function POST(request: Request) {
     }
 
     // Enforce variant count limit based on plan
-    const planConfig = getPlanById(profile.plan)
     const maxVariants = planConfig?.variantLimit ?? 10
     const settings = job.settings as FaceswapSettings
 

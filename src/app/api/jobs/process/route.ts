@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       // Auto-downgrade expired plan
       await serviceClient
         .from('profiles')
-        .update({ plan: 'free', monthly_quota: 5, quota_used: 0 })
+        .update({ plan: 'free', monthly_quota: 5, quota_used: 0, plan_expires_at: null })
         .eq('id', user.id)
       profile.plan = 'free'
       profile.monthly_quota = 5

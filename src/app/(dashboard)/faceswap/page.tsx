@@ -334,6 +334,7 @@ export default function FaceswapPage() {
   const hasFaceSelected = !!selectedFace || !!uploadedFaceFile
   const planConfig = profile ? getPlanById(profile.plan) : null
   const maxVariants = planConfig?.variantLimit ?? 10
+  const faceswapLimit = planConfig?.faceswapLimit ?? 2
 
   return (
     <div className="p-8">

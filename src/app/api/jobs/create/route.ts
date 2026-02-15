@@ -35,6 +35,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
+    // Auto-downgrade expired plans
+    if (
+      profile.plan !== 'free' &&
+      profile.plan_expires_at &&
+      new Date(profile.plan_expires_at) < new Date()
+    ) {
+      await serviceClient
+        .from('profiles')
+        .update({ plan: 'free', monthly_quota: 5, quota_used: 0, plan_expires_at: null })
+        .eq('id', user.id)
+      profile.plan = 'free'
+      profile.monthly_quota = 5
+      profile.quota_used = 0
+    }
+
+    // Pre-check quota before creating job
+    if ((profile.quota_used ?? 0) >= (profile.monthly_quota ?? 5)) {
+      return NextResponse.json(
+        { error: 'Monthly quota exceeded. Upgrade your plan for more jobs.' },
+        { status: 403 }
+      )
+    }
+
     // Enforce plan limits
     const planConfig = getPlanById(profile.plan)
     const maxVariants = planConfig?.variantLimit ?? 10
@@ -42,6 +65,29 @@ export async function POST(request: Request) {
 
     const isPhotoCaptions = jobType === 'photo_captions'
     const isFaceswap = jobType === 'faceswap'
+
+    // Pre-check faceswap-specific limit
+    if (isFaceswap) {
+      const faceswapLimit = planConfig?.faceswapLimit ?? 2
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const { count: faceswapCount } = await serviceClient
+        .from('jobs')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('job_type', 'faceswap')
+        .in('status', ['pending', 'processing', 'completed'])
+        .gte('created_at', startOfMonth.toISOString())
+
+      if ((faceswapCount ?? 0) >= faceswapLimit) {
+        return NextResponse.json(
+          { error: `Face swap limit reached (${faceswapLimit}/month). Upgrade your plan for more.` },
+          { status: 403 }
+        )
+      }
+    }
 
     let jobData
 
