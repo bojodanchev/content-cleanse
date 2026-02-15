@@ -10,14 +10,17 @@ export default function AuthLayout({
     <div className="min-h-screen bg-background grid-pattern noise-overlay flex flex-col">
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-10 p-6">
-        <Link href="/" className="flex items-center gap-2 w-fit">
+        <Link href="/" className="flex items-center gap-2.5 w-fit">
           <Image
-            src="/logo.png"
+            src="/logo-icon.png"
             alt="Content Cleanse"
-            width={180}
-            height={98}
-            className="h-10 w-auto"
+            width={36}
+            height={36}
+            className="w-9 h-9"
           />
+          <span className="font-semibold text-lg tracking-tight">
+            Content<span className="text-primary">Cleanse</span>
+          </span>
         </Link>
       </header>
 

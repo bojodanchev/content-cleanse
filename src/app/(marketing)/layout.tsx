@@ -14,15 +14,18 @@ export default function MarketingLayout({
       {/* Navigation */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl">
         <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2.5">
             <Image
-              src="/logo.png"
+              src="/logo-icon.png"
               alt="Content Cleanse"
-              width={180}
-              height={98}
-              className="h-10 w-auto"
+              width={36}
+              height={36}
+              className="w-9 h-9"
               priority
             />
+            <span className="font-semibold text-lg tracking-tight">
+              Content<span className="text-primary">Cleanse</span>
+            </span>
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
@@ -79,12 +82,15 @@ export default function MarketingLayout({
             <div className="col-span-2 md:col-span-1">
               <Link href="/" className="flex items-center gap-2 mb-4">
                 <Image
-                  src="/logo.png"
+                  src="/logo-icon.png"
                   alt="Content Cleanse"
-                  width={150}
-                  height={82}
-                  className="h-8 w-auto"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8"
                 />
+                <span className="font-semibold tracking-tight">
+                  Content<span className="text-primary">Cleanse</span>
+                </span>
               </Link>
               <p className="text-sm text-muted-foreground">
                 Transform your content into unlimited unique variants.

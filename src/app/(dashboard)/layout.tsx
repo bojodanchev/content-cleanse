@@ -77,22 +77,25 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border/40 bg-card/30 flex flex-col">
+      <aside className="w-64 border-r border-border/40 bg-card/30 flex flex-col h-screen sticky top-0">
         {/* Logo */}
-        <div className="p-6 border-b border-border/40">
-          <Link href="/dashboard" className="flex items-center gap-2">
+        <div className="p-4 border-b border-border/40">
+          <Link href="/dashboard" className="flex items-center gap-2.5">
             <Image
-              src="/logo.png"
+              src="/logo-icon.png"
               alt="Content Cleanse"
-              width={160}
-              height={87}
-              className="h-9 w-auto"
+              width={36}
+              height={36}
+              className="w-9 h-9"
             />
+            <span className="font-semibold tracking-tight">
+              Content<span className="text-primary">Cleanse</span>
+            </span>
           </Link>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-auto">
           {navigation.map((item) => (
             <Link
               key={item.name}
