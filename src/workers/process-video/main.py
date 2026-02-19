@@ -1153,6 +1153,181 @@ def start_caption_processing(item: dict):
 
 
 # ============================================================
+# Photo Cleaning (Image Uniquification) Processing
+# ============================================================
+
+@app.function(
+    image=image,
+    timeout=600,
+    cpu=2,
+    memory=4096,
+)
+def process_image(
+    job_id: str,
+    source_path: str,
+    variant_count: int,
+    user_id: str,
+    supabase_url: str,
+    supabase_key: str,
+) -> Dict[str, Any]:
+    """
+    Process a photo to create unique variants via light augmentation.
+
+    Downloads from 'images' bucket, applies brightness/saturation/tint
+    augmentations, saves with randomized JPEG quality and stripped metadata.
+    """
+    from supabase import create_client, Client
+    from PIL import Image
+    import sys
+
+    sys.path.insert(0, "/helpers")
+    from image_augmenter import augment_image, save_clean
+
+    supabase: Client = create_client(supabase_url, supabase_key)
+
+    work_dir = Path(f"/tmp/{job_id}")
+    work_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = work_dir / "variants"
+    output_dir.mkdir(exist_ok=True)
+
+    try:
+        update_job_status(supabase, job_id, "processing", 0)
+
+        # Download source photo from images bucket
+        print(f"Downloading source photo: {source_path}")
+        response = supabase.storage.from_("images").download(source_path)
+        input_path = work_dir / "input.jpg"
+        input_path.write_bytes(response)
+
+        base_img = Image.open(input_path).convert("RGB")
+
+        variants = []
+        for i in range(variant_count):
+            variant_name = f"variant_{i+1:03d}.jpg"
+            variant_path = output_dir / variant_name
+
+            # Apply light augmentation
+            augmented = augment_image(base_img.copy())
+
+            # Save with metadata stripped
+            save_clean(augmented, variant_path)
+
+            file_size = variant_path.stat().st_size
+            file_hash = calculate_file_hash(str(variant_path))
+
+            variants.append({
+                "name": variant_name,
+                "path": str(variant_path),
+                "hash": file_hash,
+                "size": file_size,
+            })
+
+            # Upload variant to Supabase Storage
+            variant_storage_path = f"{user_id}/{job_id}/{variant_name}"
+            try:
+                with open(variant_path, "rb") as vf:
+                    supabase.storage.from_("outputs").upload(
+                        variant_storage_path,
+                        vf.read(),
+                        {"content-type": "image/jpeg"},
+                    )
+            except Exception as upload_err:
+                print(f"Warning: Failed to upload variant {variant_name}: {upload_err}")
+
+            # Insert variant record
+            try:
+                supabase.table("variants").insert({
+                    "job_id": job_id,
+                    "file_path": variant_storage_path,
+                    "file_size": file_size,
+                    "file_hash": file_hash,
+                    "transformations": {"type": "photo_clean", "index": i + 1},
+                }).execute()
+            except Exception as db_err:
+                print(f"Warning: Failed to insert variant record {variant_name}: {db_err}")
+
+            progress = int((i + 1) / variant_count * 100)
+            update_job_status(supabase, job_id, "processing", progress, i + 1)
+            print(f"Image variant {i+1}/{variant_count} complete")
+
+        # Create ZIP archive
+        print("Creating ZIP archive...")
+        zip_path = work_dir / f"{job_id}_variants.zip"
+        create_zip_archive(variants, str(zip_path))
+
+        output_zip_storage = f"{user_id}/{job_id}/variants.zip"
+        try:
+            with open(zip_path, "rb") as f:
+                supabase.storage.from_("outputs").upload(
+                    output_zip_storage,
+                    f.read(),
+                    {"content-type": "application/zip"},
+                )
+        except Exception as zip_err:
+            print(f"Warning: Failed to upload ZIP: {zip_err}")
+            output_zip_storage = None
+
+        # Mark job completed
+        supabase.table("jobs").update({
+            "status": "completed",
+            "progress": 100,
+            "variants_completed": variant_count,
+            "output_zip_path": output_zip_storage,
+            "completed_at": datetime.utcnow().isoformat(),
+        }).eq("id", job_id).execute()
+
+        return {
+            "status": "completed",
+            "variants_created": variant_count,
+            "output_path": output_zip_storage,
+        }
+
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        try:
+            supabase.table("jobs").update({
+                "status": "failed",
+                "error_message": str(e)[:500],
+                "error_code": type(e).__name__,
+            }).eq("id", job_id).execute()
+        except Exception as status_err:
+            print(f"CRITICAL: Failed to update job status to failed: {status_err}")
+        raise
+
+    finally:
+        import shutil
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
+@app.function(image=image)
+@modal.fastapi_endpoint(method="POST")
+def start_image_processing(item: dict):
+    """
+    Web endpoint to trigger photo cleaning (image uniquification).
+    Called from the Next.js API route via HTTP POST.
+    Spawns process_image asynchronously and returns immediately.
+    """
+    required = [
+        "job_id", "source_path", "variant_count",
+        "user_id", "supabase_url", "supabase_key",
+    ]
+    missing = [k for k in required if k not in item]
+    if missing:
+        return {"status": "error", "error": f"Missing fields: {missing}"}
+
+    call = process_image.spawn(
+        job_id=item["job_id"],
+        source_path=item["source_path"],
+        variant_count=item["variant_count"],
+        user_id=item["user_id"],
+        supabase_url=item["supabase_url"],
+        supabase_key=item["supabase_key"],
+    )
+
+    return {"status": "queued", "call_id": call.object_id}
+
+
+# ============================================================
 # Faceswap Processing Endpoint
 # ============================================================
 

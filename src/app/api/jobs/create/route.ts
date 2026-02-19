@@ -65,6 +65,7 @@ export async function POST(request: Request) {
 
     const isPhotoCaptions = jobType === 'photo_captions'
     const isFaceswap = jobType === 'faceswap'
+    const isPhotoClean = jobType === 'photo_clean'
 
     // Pre-check faceswap-specific limit
     if (isFaceswap) {
@@ -114,6 +115,17 @@ export async function POST(request: Request) {
         source_file_size: fileSize || 0,
         variant_count: validatedVariantCount,
         settings: settings || {},
+      }
+    } else if (isPhotoClean) {
+      jobData = {
+        user_id: user.id,
+        job_type: 'photo_clean' as const,
+        status: 'pending' as const,
+        source_file_path: filePath,
+        source_file_name: fileName,
+        source_file_size: fileSize || 0,
+        variant_count: validatedVariantCount,
+        settings: {},
       }
     } else {
       // Video job (default)

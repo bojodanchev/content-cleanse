@@ -13,6 +13,8 @@ interface DropzoneProps {
   onClear: () => void
   uploading?: boolean
   progress?: number
+  accept?: Record<string, string[]>
+  description?: string
 }
 
 const ACCEPTED_TYPES = {
@@ -30,6 +32,8 @@ export function Dropzone({
   onClear,
   uploading = false,
   progress = 0,
+  accept,
+  description,
 }: DropzoneProps) {
   const [error, setError] = useState<string | null>(null)
 
@@ -38,7 +42,7 @@ export function Dropzone({
       setError(null)
 
       if (rejectedFiles.length > 0) {
-        setError('Invalid file. Please upload a video file under 50MB.')
+        setError('Invalid file type or file exceeds 50MB limit.')
         return
       }
 
@@ -51,7 +55,7 @@ export function Dropzone({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: ACCEPTED_TYPES,
+    accept: accept || ACCEPTED_TYPES,
     maxSize: MAX_SIZE,
     multiple: false,
     disabled: uploading,
@@ -135,7 +139,7 @@ export function Dropzone({
               exit={{ opacity: 0, y: -10 }}
             >
               <p className="text-xl font-medium text-primary">
-                Drop your video here
+                Drop your file here
               </p>
             </motion.div>
           ) : (
@@ -146,13 +150,13 @@ export function Dropzone({
               exit={{ opacity: 0, y: -10 }}
             >
               <p className="text-xl font-medium mb-2">
-                Drag & drop your video
+                Drag & drop your file
               </p>
               <p className="text-muted-foreground mb-4">
                 or click to browse files
               </p>
               <p className="text-sm text-muted-foreground">
-                MP4, MOV, AVI, WebM up to 50MB
+                {description || 'MP4, MOV, AVI, WebM up to 50MB'}
               </p>
             </motion.div>
           )}

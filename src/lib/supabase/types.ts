@@ -8,7 +8,7 @@ export type Json =
 
 export type JobStatus = 'pending' | 'uploading' | 'processing' | 'completed' | 'failed'
 
-export type JobType = 'video' | 'photo_captions' | 'faceswap'
+export type JobType = 'video' | 'photo_captions' | 'faceswap' | 'photo_clean'
 
 export type Plan = 'free' | 'pro' | 'agency'
 
@@ -143,7 +143,7 @@ export interface Database {
           source_file_size?: number | null
           source_duration?: number | null
           variant_count?: number
-          settings?: ProcessingSettings | CaptionSettings
+          settings?: ProcessingSettings | CaptionSettings | FaceswapSettings | Record<string, never>
           progress?: number
           variants_completed?: number
           output_zip_path?: string | null
@@ -163,7 +163,7 @@ export interface Database {
           source_file_size?: number | null
           source_duration?: number | null
           variant_count?: number
-          settings?: ProcessingSettings | CaptionSettings
+          settings?: ProcessingSettings | CaptionSettings | FaceswapSettings | Record<string, never>
           progress?: number
           variants_completed?: number
           output_zip_path?: string | null

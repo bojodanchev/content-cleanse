@@ -42,6 +42,13 @@ interface ModalFaceswapJobRequest {
   userId: string
 }
 
+interface ModalImageJobRequest {
+  jobId: string
+  sourcePath: string
+  variantCount: number
+  userId: string
+}
+
 interface ModalJobResponse {
   status: 'queued' | 'error'
   callId?: string
@@ -235,6 +242,69 @@ export async function triggerFaceswapProcessing(
     }
   } catch (error) {
     console.error('Failed to trigger Modal faceswap job:', error)
+    return {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+export async function triggerImageProcessing(
+  request: ModalImageJobRequest
+): Promise<ModalJobResponse> {
+  const endpointUrl = process.env.MODAL_ENDPOINT_URL
+
+  if (!endpointUrl) {
+    console.error('MODAL_ENDPOINT_URL not configured')
+    return { status: 'error', error: 'Modal endpoint not configured' }
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase credentials not configured')
+    return { status: 'error', error: 'Supabase credentials not configured' }
+  }
+
+  const imageEndpointUrl = endpointUrl.replace(
+    'start-processing',
+    'start-image-processing'
+  )
+
+  try {
+    const response = await fetch(imageEndpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        job_id: request.jobId,
+        source_path: request.sourcePath,
+        variant_count: request.variantCount,
+        user_id: request.userId,
+        supabase_url: supabaseUrl,
+        supabase_key: supabaseKey,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Modal image endpoint error (${response.status}): ${error}`)
+    }
+
+    const result = await response.json()
+
+    if (result.status === 'error') {
+      return { status: 'error', error: result.error }
+    }
+
+    return {
+      status: 'queued',
+      callId: result.call_id,
+    }
+  } catch (error) {
+    console.error('Failed to trigger Modal image job:', error)
     return {
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',

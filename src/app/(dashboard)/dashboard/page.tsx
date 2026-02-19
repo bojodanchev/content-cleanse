@@ -1,90 +1,102 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Clock, Zap, FileVideo, TrendingUp, Download, Loader2 } from 'lucide-react'
+import {
+  Search,
+  Download,
+  Loader2,
+  FileVideo,
+  ImageIcon,
+  Repeat,
+  Sparkles,
+  TrendingUp,
+  Zap,
+  Clock,
+  MoreVertical,
+  Trash2,
+  ArrowRight,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dropzone } from '@/components/upload/dropzone'
-import { SettingsPanel, ProcessingSettings } from '@/components/upload/settings-panel'
-import { ProgressTracker } from '@/components/upload/progress-tracker'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { getClient } from '@/lib/supabase/client'
+import { getJobThumbnails } from '@/lib/supabase/thumbnails'
+import { formatBytes } from '@/lib/utils'
 import type { Job, Profile } from '@/lib/supabase/types'
-import JSZip from 'jszip'
+import { downloadJobFiles as downloadFiles } from '@/lib/download'
+import Link from 'next/link'
 
-type ViewState = 'upload' | 'settings' | 'processing'
+const PAGE_SIZE = 20
+
+const JOB_TYPE_LABELS: Record<string, { label: string; icon: typeof FileVideo; color: string }> = {
+  video: { label: 'Video', icon: FileVideo, color: 'text-blue-400' },
+  photo_captions: { label: 'Captions', icon: ImageIcon, color: 'text-amber-400' },
+  faceswap: { label: 'Face Swap', icon: Repeat, color: 'text-purple-400' },
+  photo_clean: { label: 'Photo Clean', icon: Sparkles, color: 'text-emerald-400' },
+}
 
 export default function DashboardPage() {
-  const [view, setView] = useState<ViewState>('upload')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [currentJob, setCurrentJob] = useState<Job | null>(null)
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [thumbnails, setThumbnails] = useState<Map<string, string>>(new Map())
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [recentJobs, setRecentJobs] = useState<Job[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'processing' | 'failed'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'video' | 'photo_captions' | 'faceswap' | 'photo_clean'>('all')
   const [downloadingJobId, setDownloadingJobId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [settings, setSettings] = useState<ProcessingSettings>({
-    variantCount: 10,
-    removeWatermark: false,
-    addWatermark: false,
-  })
+  const [totalJobs, setTotalJobs] = useState(0)
+  const [totalVariants, setTotalVariants] = useState(0)
 
   const supabase = getClient()
 
   useEffect(() => {
     loadProfile()
-    loadRecentJobs()
+    loadJobs(true)
   }, [])
 
-  // Subscribe to job updates
+  // Subscribe to job updates for in-progress jobs
   useEffect(() => {
-    if (!currentJob) return
+    const processingJobs = jobs.filter(
+      (j) => j.status === 'processing' || j.status === 'pending' || j.status === 'uploading'
+    )
+    if (processingJobs.length === 0) return
 
     const channel = supabase
-      .channel(`job-${currentJob.id}`)
+      .channel('dashboard-jobs')
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'jobs',
-          filter: `id=eq.${currentJob.id}`,
         },
         (payload) => {
-          setCurrentJob(payload.new as Job)
+          const updated = payload.new as Job
+          setJobs((prev) =>
+            prev.map((j) => (j.id === updated.id ? updated : j))
+          )
+          // If job just completed, fetch its thumbnail
+          if (updated.status === 'completed') {
+            loadThumbnailsForJobs([updated])
+          }
         }
       )
       .subscribe()
 
-    // Detect stale jobs stuck in processing for >15 minutes
-    const staleCheckInterval = setInterval(() => {
-      if (
-        currentJob.status === 'processing' &&
-        currentJob.created_at
-      ) {
-        const elapsed = Date.now() - new Date(currentJob.created_at).getTime()
-        const fifteenMinutes = 15 * 60 * 1000
-        if (elapsed > fifteenMinutes) {
-          setCurrentJob((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  status: 'failed' as const,
-                  error_message:
-                    'Processing timed out. The server may have encountered an error. Please try again.',
-                }
-              : prev
-          )
-        }
-      }
-    }, 30000) // Check every 30 seconds
-
     return () => {
       supabase.removeChannel(channel)
-      clearInterval(staleCheckInterval)
     }
-  }, [currentJob?.id])
+  }, [jobs.filter((j) => j.status === 'processing' || j.status === 'pending').length])
 
   const loadProfile = async () => {
     const {
@@ -101,160 +113,65 @@ export default function DashboardPage() {
     if (data) setProfile(data)
   }
 
-  const loadRecentJobs = async () => {
-    const { data } = await supabase
+  const loadThumbnailsForJobs = async (jobList: Job[]) => {
+    const completedIds = jobList
+      .filter((j) => j.status === 'completed')
+      .map((j) => j.id)
+
+    if (completedIds.length === 0) return
+
+    const newThumbnails = await getJobThumbnails(supabase, completedIds)
+    setThumbnails((prev) => {
+      const merged = new Map(prev)
+      for (const [k, v] of newThumbnails) {
+        merged.set(k, v)
+      }
+      return merged
+    })
+  }
+
+  const loadJobs = async (initial = false) => {
+    if (initial) {
+      setLoading(true)
+    } else {
+      setLoadingMore(true)
+    }
+
+    const offset = initial ? 0 : jobs.length
+    const { data, count } = await supabase
       .from('jobs')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(5)
+      .range(offset, offset + PAGE_SIZE - 1)
 
-    if (data) setRecentJobs(data)
-  }
+    if (data) {
+      const newJobs = initial ? data : [...jobs, ...data]
+      setJobs(newJobs)
+      setHasMore(data.length === PAGE_SIZE)
 
-  const handleFileSelect = (file: File) => {
-    setSelectedFile(file)
-  }
+      // Compute stats from all loaded jobs
+      const completed = newJobs.filter((j) => j.status === 'completed')
+      setTotalJobs(count ?? newJobs.length)
+      setTotalVariants(completed.reduce((sum, j) => sum + j.variant_count, 0))
 
-  const handleClearFile = () => {
-    setSelectedFile(null)
-  }
-
-  const handleContinue = () => {
-    if (selectedFile) {
-      setView('settings')
+      // Load thumbnails for completed jobs
+      await loadThumbnailsForJobs(data)
     }
+
+    setLoading(false)
+    setLoadingMore(false)
   }
 
-  const handleStartProcessing = async () => {
-    if (!selectedFile || !profile) return
-
-    setView('processing')
-    setUploading(true)
-
-    try {
-      // Upload file to Supabase Storage
-      const fileName = `${profile.id}/${Date.now()}-${selectedFile.name}`
-
-      // Simulate upload progress (Supabase doesn't support progress callbacks)
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90))
-      }, 200)
-
-      const { error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(fileName, selectedFile)
-
-      clearInterval(progressInterval)
-      setUploadProgress(100)
-
-      if (uploadError) throw uploadError
-
-      // Create job via server API (validates plan limits server-side)
-      const createResponse = await fetch('/api/jobs/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filePath: fileName,
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          variantCount: settings.variantCount,
-          removeWatermark: settings.removeWatermark,
-          addWatermark: settings.addWatermark,
-        }),
-      })
-
-      if (!createResponse.ok) {
-        const errorData = await createResponse.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to create job')
-      }
-
-      const { job } = await createResponse.json()
-
-      setCurrentJob(job)
-      setUploading(false)
-
-      // Trigger processing on Modal
-      const processResponse = await fetch('/api/jobs/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: job.id }),
-      })
-
-      if (!processResponse.ok) {
-        const errorData = await processResponse.json().catch(() => ({}))
-        setCurrentJob({
-          ...job,
-          status: 'failed',
-          error_message: errorData.error || 'Failed to start processing',
-        })
-      }
-    } catch (err) {
-      console.error('Error starting job:', err)
-      setUploading(false)
-      setView('settings')
-      setError(err instanceof Error ? err.message : 'Failed to start processing')
-    }
+  const handleDelete = async (jobId: string) => {
+    await supabase.from('jobs').delete().eq('id', jobId)
+    setJobs((prev) => prev.filter((j) => j.id !== jobId))
   }
 
-  const downloadJobFiles = async (job: Job) => {
+  const handleDownloadJob = async (job: Job) => {
     if (!profile || downloadingJobId) return
     setDownloadingJobId(job.id)
-
     try {
-      // Try pre-built ZIP first if available
-      if (job.output_zip_path) {
-        const { data } = await supabase.storage
-          .from('outputs')
-          .createSignedUrl(job.output_zip_path, 3600)
-
-        if (data?.signedUrl) {
-          const a = document.createElement('a')
-          a.href = data.signedUrl
-          a.download = `${job.source_file_name || 'variants'}_variants.zip`
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-          return
-        }
-      }
-
-      // Fallback: build ZIP client-side from individual variant files
-      const { data: files } = await supabase.storage
-        .from('outputs')
-        .list(`${profile.id}/${job.id}`, { sortBy: { column: 'name', order: 'asc' } })
-
-      if (!files?.length) {
-        alert('No output files found for this job.')
-        return
-      }
-
-      const variantFiles = files.filter((f) => f.name.endsWith('.mp4'))
-      if (!variantFiles.length) {
-        alert('No variant files found for this job.')
-        return
-      }
-
-      const zip = new JSZip()
-
-      for (const file of variantFiles) {
-        const { data } = await supabase.storage
-          .from('outputs')
-          .download(`${profile.id}/${job.id}/${file.name}`)
-
-        if (data) {
-          zip.file(file.name, data)
-        }
-      }
-
-      const blob = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${(job.source_file_name || 'variants').replace(/\.[^.]+$/, '')}_variants.zip`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      await downloadFiles(supabase, profile.id, job)
     } catch (err) {
       console.error('Download failed:', err)
       alert('Download failed. Please try again.')
@@ -263,25 +180,37 @@ export default function DashboardPage() {
     }
   }
 
-  const handleDownload = async () => {
-    if (!currentJob) return
-    await downloadJobFiles(currentJob)
+  const filteredJobs = jobs.filter((job) => {
+    const matchesSearch =
+      !search ||
+      job.source_file_name?.toLowerCase().includes(search.toLowerCase()) ||
+      job.id.toLowerCase().includes(search.toLowerCase())
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'processing' &&
+        (job.status === 'processing' || job.status === 'uploading' || job.status === 'pending')) ||
+      job.status === statusFilter
+    const matchesType = typeFilter === 'all' || job.job_type === typeFilter
+    return matchesSearch && matchesStatus && matchesType
+  })
+
+  const getStatusColor = (status: Job['status']) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-500/20 text-green-500 border-green-500/30'
+      case 'failed':
+        return 'bg-destructive/20 text-destructive border-destructive/30'
+      case 'processing':
+      case 'uploading':
+        return 'bg-primary/20 text-primary border-primary/30'
+      default:
+        return 'bg-muted text-muted-foreground border-border'
+    }
   }
 
-  const handleNewJob = () => {
-    setView('upload')
-    setSelectedFile(null)
-    setCurrentJob(null)
-    setSettings({
-      variantCount: 10,
-      removeWatermark: false,
-      addWatermark: false,
-    })
-    loadRecentJobs()
-  }
-
-  const maxVariants = profile?.plan === 'agency' ? 100 : profile?.plan === 'pro' ? 100 : 10
-  const canRemoveWatermark = profile?.plan === 'pro' || profile?.plan === 'agency'
+  const isImageJob = (job: Job) =>
+    job.job_type === 'photo_captions' || job.job_type === 'photo_clean' ||
+    (job.job_type === 'faceswap' && (job.settings as any)?.source_type === 'image')
 
   return (
     <div className="p-8">
@@ -289,7 +218,7 @@ export default function DashboardPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
         <p className="text-muted-foreground">
-          Transform your videos into unique variants
+          Your content at a glance
         </p>
       </div>
 
@@ -297,16 +226,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         {[
           {
-            label: 'Videos Processed',
-            value: recentJobs.filter((j) => j.status === 'completed').length,
+            label: 'Total Jobs',
+            value: totalJobs,
             icon: FileVideo,
             color: 'text-primary',
           },
           {
             label: 'Variants Created',
-            value: recentJobs
-              .filter((j) => j.status === 'completed')
-              .reduce((sum, j) => sum + j.variant_count, 0),
+            value: totalVariants,
             icon: Zap,
             color: 'text-accent',
           },
@@ -317,12 +244,8 @@ export default function DashboardPage() {
             color: 'text-green-500',
           },
           {
-            label: 'This Month',
-            value: recentJobs.filter(
-              (j) =>
-                j.status === 'completed' &&
-                new Date(j.created_at).getMonth() === new Date().getMonth()
-            ).length,
+            label: 'Plan',
+            value: (profile?.plan || 'free').charAt(0).toUpperCase() + (profile?.plan || 'free').slice(1),
             icon: Clock,
             color: 'text-yellow-500',
           },
@@ -345,163 +268,279 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Main content */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Upload/Processing area */}
-        <div className="lg:col-span-2">
-          <Card className="bg-card/50 border-border/50">
-            <CardHeader>
-              <CardTitle>
-                {view === 'upload'
-                  ? 'Upload Video'
-                  : view === 'settings'
-                  ? 'Configure Processing'
-                  : 'Processing'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {view === 'upload' && (
-                <div className="space-y-6">
-                  <Dropzone
-                    onFileSelect={handleFileSelect}
-                    selectedFile={selectedFile}
-                    onClear={handleClearFile}
-                    uploading={uploading}
-                    progress={uploadProgress}
-                  />
-                  {error && (
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-sm text-destructive"
-                    >
-                      {error}
-                    </motion.p>
-                  )}
-                  {selectedFile && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex justify-end"
-                    >
-                      <Button
-                        onClick={() => { setError(null); handleContinue() }}
-                        className="bg-gradient-to-r from-primary to-primary/80"
-                      >
-                        Continue
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </motion.div>
-                  )}
-                </div>
-              )}
+      {/* Filters */}
+      <Card className="bg-card/50 border-border/50 mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by filename..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 bg-secondary/50"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {(['all', 'completed', 'processing', 'failed'] as const).map((f) => (
+                <Button
+                  key={f}
+                  variant={statusFilter === f ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatusFilter(f)}
+                  className={statusFilter === f ? 'bg-primary' : 'border-border/50'}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </Button>
+              ))}
+            </div>
+          </div>
+          {/* Type filter */}
+          <div className="flex gap-2 mt-3 flex-wrap">
+            {([
+              { key: 'all', label: 'All Types' },
+              { key: 'video', label: 'Video' },
+              { key: 'photo_captions', label: 'Captions' },
+              { key: 'faceswap', label: 'Face Swap' },
+              { key: 'photo_clean', label: 'Photo Clean' },
+            ] as const).map((t) => (
+              <Button
+                key={t.key}
+                variant={typeFilter === t.key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter(t.key)}
+                className={typeFilter === t.key ? 'bg-accent text-accent-foreground' : 'border-border/50'}
+              >
+                {t.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-              {view === 'settings' && (
-                <div className="space-y-6">
-                  <SettingsPanel
-                    settings={settings}
-                    onChange={setSettings}
-                    maxVariants={maxVariants}
-                    canRemoveWatermark={canRemoveWatermark}
-                  />
-                  {error && (
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-sm text-destructive"
-                    >
-                      {error}
-                    </motion.p>
-                  )}
-                  <div className="flex items-center justify-between pt-4 border-t border-border/40">
-                    <Button
-                      variant="ghost"
-                      onClick={() => setView('upload')}
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      onClick={handleStartProcessing}
-                      className="bg-gradient-to-r from-primary to-primary/80"
-                    >
-                      Start Processing
-                      <Zap className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {view === 'processing' && currentJob && (
-                <ProgressTracker
-                  job={currentJob}
-                  onDownload={handleDownload}
-                  onNewJob={handleNewJob}
-                />
-              )}
-            </CardContent>
-          </Card>
+      {/* Gallery grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div
+              key={i}
+              className="aspect-[4/3] rounded-xl bg-card/50 animate-pulse"
+            />
+          ))}
         </div>
+      ) : filteredJobs.length === 0 ? (
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="py-16 text-center">
+            <Sparkles className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">
+              {search || statusFilter !== 'all' || typeFilter !== 'all'
+                ? 'No matching jobs found'
+                : 'No content yet'}
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              {search || statusFilter !== 'all' || typeFilter !== 'all'
+                ? 'Try adjusting your filters'
+                : 'Start creating unique content variants'}
+            </p>
+            {!search && statusFilter === 'all' && typeFilter === 'all' && (
+              <div className="flex items-center justify-center gap-3">
+                <Link href="/clean">
+                  <Button className="bg-primary">
+                    Clean Video/Photo
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/captions">
+                  <Button variant="outline">Photo Captions</Button>
+                </Link>
+                <Link href="/faceswap">
+                  <Button variant="outline">Face Swap</Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredJobs.map((job, i) => {
+              const thumbUrl = thumbnails.get(job.id)
+              const typeInfo = JOB_TYPE_LABELS[job.job_type] || JOB_TYPE_LABELS.video
+              const TypeIcon = typeInfo.icon
+              const isImg = isImageJob(job)
 
-        {/* Recent jobs */}
-        <div>
-          <Card className="bg-card/50 border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Jobs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentJobs.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No jobs yet. Upload your first video!
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {recentJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      onClick={() => job.status === 'completed' && !downloadingJobId && downloadJobFiles(job)}
-                      className={`p-3 rounded-lg bg-secondary/30 border border-border/40 ${
-                        job.status === 'completed' && !downloadingJobId
-                          ? 'cursor-pointer hover:bg-secondary/50 hover:border-primary/30 transition-colors'
-                          : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium truncate max-w-[150px]">
-                          {job.source_file_name || 'Video'}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {job.status === 'completed' && (
-                            downloadingJobId === job.id ? (
-                              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
-                            ) : (
-                              <Download className="w-3.5 h-3.5 text-green-500" />
-                            )
+              return (
+                <motion.div
+                  key={job.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                >
+                  <Card className="bg-card/50 border-border/50 hover:border-primary/30 transition-colors overflow-hidden group">
+                    {/* Thumbnail area */}
+                    <div className="relative aspect-[4/3] bg-secondary/30 overflow-hidden">
+                      {job.status === 'completed' && thumbUrl ? (
+                        isImg ? (
+                          <img
+                            src={thumbUrl}
+                            alt={job.source_file_name || 'Output'}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={thumbUrl}
+                            preload="metadata"
+                            muted
+                            className="w-full h-full object-cover"
+                            onMouseEnter={(e) => (e.target as HTMLVideoElement).play()}
+                            onMouseLeave={(e) => {
+                              const v = e.target as HTMLVideoElement
+                              v.pause()
+                              v.currentTime = 0
+                            }}
+                          />
+                        )
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          {job.status === 'processing' || job.status === 'pending' || job.status === 'uploading' ? (
+                            <div className="text-center">
+                              <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-2" />
+                              <span className="text-xs text-muted-foreground">{job.progress}%</span>
+                            </div>
+                          ) : job.status === 'failed' ? (
+                            <div className="text-center text-destructive">
+                              <span className="text-xs">Failed</span>
+                            </div>
+                          ) : (
+                            <TypeIcon className={`w-8 h-8 text-muted-foreground`} />
                           )}
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                              job.status === 'completed'
-                                ? 'bg-green-500/20 text-green-500'
-                                : job.status === 'failed'
-                                ? 'bg-destructive/20 text-destructive'
-                                : 'bg-primary/20 text-primary'
-                            }`}
-                          >
-                            {job.status}
-                          </span>
                         </div>
+                      )}
+
+                      {/* Type badge */}
+                      <div className="absolute top-2 left-2">
+                        <Badge
+                          variant="outline"
+                          className="bg-background/80 backdrop-blur-sm text-xs"
+                        >
+                          <TypeIcon className={`w-3 h-3 mr-1 ${typeInfo.color}`} />
+                          {typeInfo.label}
+                        </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {job.variant_count} variants •{' '}
-                        {new Date(job.created_at).toLocaleDateString()}
-                      </p>
+
+                      {/* Hover overlay with download */}
+                      {job.status === 'completed' && (
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDownloadJob(job)
+                            }}
+                            disabled={!!downloadingJobId}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {downloadingJobId === job.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                            ) : (
+                              <Download className="w-4 h-4 mr-1" />
+                            )}
+                            Download
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+
+                    {/* Card info */}
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">
+                            {job.source_file_name || 'Untitled'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            <span>{job.variant_count} variants</span>
+                            {job.source_file_size && (
+                              <>
+                                <span className="text-border">|</span>
+                                <span>{formatBytes(job.source_file_size)}</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 ${getStatusColor(job.status)}`}
+                            >
+                              {job.status}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(job.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Actions menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {job.status === 'completed' && (
+                              <DropdownMenuItem onClick={() => handleDownloadJob(job)}>
+                                <Download className="w-4 h-4 mr-2" />
+                                Download ZIP
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(job.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      {/* Progress bar for processing jobs */}
+                      {(job.status === 'processing' || job.status === 'uploading') && (
+                        <div className="mt-2">
+                          <div className="h-1 rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-primary to-accent transition-all"
+                              style={{ width: `${job.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )
+            })}
+          </div>
+
+          {/* Load more */}
+          {hasMore && (
+            <div className="flex justify-center mt-8">
+              <Button
+                variant="outline"
+                onClick={() => loadJobs(false)}
+                disabled={loadingMore}
+                className="border-border/50"
+              >
+                {loadingMore ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : null}
+                Load More
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

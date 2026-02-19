@@ -19,6 +19,7 @@ interface SettingsPanelProps {
   onChange: (settings: ProcessingSettings) => void
   maxVariants: number
   canRemoveWatermark: boolean
+  mediaType?: 'video' | 'image'
 }
 
 const PRESET_COUNTS = [10, 25, 50, 100]
@@ -28,6 +29,7 @@ export function SettingsPanel({
   onChange,
   maxVariants,
   canRemoveWatermark,
+  mediaType = 'video',
 }: SettingsPanelProps) {
   const [customCount, setCustomCount] = useState(false)
 
@@ -97,53 +99,55 @@ export function SettingsPanel({
       </div>
 
       {/* Watermark removal */}
-      <div className="space-y-3">
-        <Label className="text-base font-medium flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary" />
-          Watermark Removal
-        </Label>
-        <button
-          onClick={() =>
-            canRemoveWatermark &&
-            onChange({ ...settings, removeWatermark: !settings.removeWatermark })
-          }
-          disabled={!canRemoveWatermark}
-          className={cn(
-            'w-full p-4 rounded-xl border text-left transition-all',
-            settings.removeWatermark
-              ? 'border-primary bg-primary/10'
-              : 'border-border/50 bg-card/50',
-            !canRemoveWatermark && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
-                settings.removeWatermark
-                  ? 'border-primary bg-primary'
-                  : 'border-muted-foreground'
-              )}
-            >
-              {settings.removeWatermark && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="w-2 h-2 rounded-full bg-white"
-                />
-              )}
+      {mediaType !== 'image' && (
+        <div className="space-y-3">
+          <Label className="text-base font-medium flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            Watermark Removal
+          </Label>
+          <button
+            onClick={() =>
+              canRemoveWatermark &&
+              onChange({ ...settings, removeWatermark: !settings.removeWatermark })
+            }
+            disabled={!canRemoveWatermark}
+            className={cn(
+              'w-full p-4 rounded-xl border text-left transition-all',
+              settings.removeWatermark
+                ? 'border-primary bg-primary/10'
+                : 'border-border/50 bg-card/50',
+              !canRemoveWatermark && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
+                  settings.removeWatermark
+                    ? 'border-primary bg-primary'
+                    : 'border-muted-foreground'
+                )}
+              >
+                {settings.removeWatermark && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="w-2 h-2 rounded-full bg-white"
+                  />
+                )}
+              </div>
+              <div>
+                <p className="font-medium">AI Watermark Removal</p>
+                <p className="text-sm text-muted-foreground">
+                  {canRemoveWatermark
+                    ? 'Automatically detect and remove watermarks using AI inpainting'
+                    : 'Upgrade to Pro to unlock watermark removal'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium">AI Watermark Removal</p>
-              <p className="text-sm text-muted-foreground">
-                {canRemoveWatermark
-                  ? 'Automatically detect and remove watermarks using AI inpainting'
-                  : 'Upgrade to Pro to unlock watermark removal'}
-              </p>
-            </div>
-          </div>
-        </button>
-      </div>
+          </button>
+        </div>
+      )}
 
       {/* Summary */}
       <div className="rounded-xl bg-secondary/30 border border-border/40 p-4">
@@ -158,12 +162,14 @@ export function SettingsPanel({
               {settings.variantCount}
             </span>
           </li>
-          <li className="flex items-center justify-between">
-            <span>Watermark removal</span>
-            <span className="font-medium text-foreground">
-              {settings.removeWatermark ? 'Yes' : 'No'}
-            </span>
-          </li>
+          {mediaType !== 'image' && (
+            <li className="flex items-center justify-between">
+              <span>Watermark removal</span>
+              <span className="font-medium text-foreground">
+                {settings.removeWatermark ? 'Yes' : 'No'}
+              </span>
+            </li>
+          )}
           <li className="flex items-center justify-between">
             <span>Estimated time</span>
             <span className="font-medium text-foreground">
