@@ -9,7 +9,8 @@ import {
   FileVideo,
   ImageIcon,
   Repeat,
-  Sparkles,
+  Eraser,
+  FolderOpen,
   TrendingUp,
   Zap,
   Clock,
@@ -40,7 +41,7 @@ const JOB_TYPE_LABELS: Record<string, { label: string; icon: typeof FileVideo; c
   video: { label: 'Video', icon: FileVideo, color: 'text-blue-400' },
   photo_captions: { label: 'Captions', icon: ImageIcon, color: 'text-amber-400' },
   faceswap: { label: 'Face Swap', icon: Repeat, color: 'text-purple-400' },
-  photo_clean: { label: 'Photo Clean', icon: Sparkles, color: 'text-emerald-400' },
+  photo_clean: { label: 'Photo Clean', icon: Eraser, color: 'text-emerald-400' },
 }
 
 export default function DashboardPage() {
@@ -331,7 +332,7 @@ export default function DashboardPage() {
       ) : filteredJobs.length === 0 ? (
         <Card className="bg-card/50 border-border/50">
           <CardContent className="py-16 text-center">
-            <Sparkles className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">
               {search || statusFilter !== 'all' || typeFilter !== 'all'
                 ? 'No matching jobs found'

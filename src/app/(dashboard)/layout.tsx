@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import {
   LayoutDashboard,
-  Sparkles,
+  Wand2,
   Settings,
   Zap,
   ImagePlus,
@@ -16,7 +16,7 @@ import { UserMenu } from '@/components/dashboard/user-menu'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Clean', href: '/clean', icon: Sparkles },
+  { name: 'Clean', href: '/clean', icon: Wand2 },
   { name: 'Photo Captions', href: '/captions', icon: ImagePlus },
   { name: 'Face Swap', href: '/faceswap', icon: Repeat },
   { name: 'Settings', href: '/settings', icon: Settings },
