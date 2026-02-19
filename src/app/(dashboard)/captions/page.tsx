@@ -681,6 +681,16 @@ export default function CaptionsPage() {
                     previewUrl={photos.length > 0 ? photos[0].previewUrl : null}
                   />
 
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-sm text-destructive"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+
                   <div className="flex items-center justify-between pt-4 border-t border-border/40">
                     <Button
                       variant="ghost"
