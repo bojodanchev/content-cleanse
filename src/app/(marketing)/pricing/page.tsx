@@ -1,10 +1,12 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Check, HelpCircle } from 'lucide-react'
+import { Check, HelpCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PLANS } from '@/lib/crypto/plans'
+import { getClient } from '@/lib/supabase/client'
 
 const comparisonFeatures = [
   { name: 'Videos per month', free: '5', pro: '100', agency: 'Unlimited' },
@@ -21,6 +23,39 @@ const comparisonFeatures = [
 ]
 
 export default function PricingPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [upgrading, setUpgrading] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = getClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user)
+    })
+  }, [])
+
+  const handleUpgrade = async (planId: string) => {
+    setUpgrading(planId)
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: planId }),
+      })
+
+      const { url, error } = await response.json()
+      if (url) {
+        window.location.href = url
+      } else {
+        console.error('Checkout error:', error)
+        alert('Failed to create checkout session. Please try again.')
+      }
+    } catch (error) {
+      console.error('Checkout error:', error)
+      alert('Failed to create checkout session. Please try again.')
+    }
+    setUpgrading(null)
+  }
+
   return (
     <div className="pt-24 pb-16">
       {/* Hero */}
@@ -85,10 +120,20 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                href={plan.price === 0 ? '/signup' : `/signup?plan=${plan.id}`}
-              >
+              {plan.price === 0 ? (
+                <Link href={isLoggedIn ? '/dashboard' : '/signup'}>
+                  <Button
+                    className="w-full h-12"
+                    variant="outline"
+                    size="lg"
+                  >
+                    {isLoggedIn ? 'Go to Dashboard' : 'Start Free'}
+                  </Button>
+                </Link>
+              ) : isLoggedIn ? (
                 <Button
+                  onClick={() => handleUpgrade(plan.id)}
+                  disabled={upgrading !== null}
                   className={`w-full h-12 ${
                     plan.popular
                       ? 'bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70'
@@ -97,9 +142,30 @@ export default function PricingPage() {
                   variant={plan.popular ? 'default' : 'outline'}
                   size="lg"
                 >
-                  {plan.price === 0 ? 'Start Free' : 'Get Started'}
+                  {upgrading === plan.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Creating checkout...
+                    </>
+                  ) : (
+                    `Upgrade to ${plan.name}`
+                  )}
                 </Button>
-              </Link>
+              ) : (
+                <Link href={`/signup?plan=${plan.id}`}>
+                  <Button
+                    className={`w-full h-12 ${
+                      plan.popular
+                        ? 'bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70'
+                        : ''
+                    }`}
+                    variant={plan.popular ? 'default' : 'outline'}
+                    size="lg"
+                  >
+                    Get Started
+                  </Button>
+                </Link>
+              )}
 
               {plan.price > 0 && (
                 <p className="text-center text-sm text-muted-foreground mt-4">
