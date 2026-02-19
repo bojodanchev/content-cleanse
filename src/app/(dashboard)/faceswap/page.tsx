@@ -504,6 +504,12 @@ export default function FaceswapPage() {
                     facePreviewUrl={facePreviewUrl}
                   />
 
+                  {error && (
+                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-destructive">
+                      {error}
+                    </motion.p>
+                  )}
+
                   <div className="flex items-center justify-between pt-4 border-t border-border/40">
                     <Button variant="ghost" onClick={() => setView('face')}>
                       <ArrowLeft className="w-4 h-4 mr-2" /> Back

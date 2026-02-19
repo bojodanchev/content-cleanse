@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [recentJobs, setRecentJobs] = useState<Job[]>([])
   const [downloadingJobId, setDownloadingJobId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [settings, setSettings] = useState<ProcessingSettings>({
     variantCount: 10,
     removeWatermark: false,
@@ -187,10 +188,11 @@ export default function DashboardPage() {
           error_message: errorData.error || 'Failed to start processing',
         })
       }
-    } catch (error) {
-      console.error('Error starting job:', error)
+    } catch (err) {
+      console.error('Error starting job:', err)
       setUploading(false)
-      setView('upload')
+      setView('settings')
+      setError(err instanceof Error ? err.message : 'Failed to start processing')
     }
   }
 
@@ -367,6 +369,15 @@ export default function DashboardPage() {
                     uploading={uploading}
                     progress={uploadProgress}
                   />
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-sm text-destructive"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
                   {selectedFile && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -374,7 +385,7 @@ export default function DashboardPage() {
                       className="flex justify-end"
                     >
                       <Button
-                        onClick={handleContinue}
+                        onClick={() => { setError(null); handleContinue() }}
                         className="bg-gradient-to-r from-primary to-primary/80"
                       >
                         Continue
@@ -393,6 +404,15 @@ export default function DashboardPage() {
                     maxVariants={maxVariants}
                     canRemoveWatermark={canRemoveWatermark}
                   />
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-sm text-destructive"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
                   <div className="flex items-center justify-between pt-4 border-t border-border/40">
                     <Button
                       variant="ghost"
