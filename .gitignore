@@ -50,3 +50,13 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# WIP - unfinished features
+src/app/(dashboard)/instagram-import/
+src/app/api/instagram/
+src/workers/instagram-downloader/
+supabase/migrations/008_instagram_imports.sql
+
+# tools / playwright
+.playwright-mcp/
+tools/
