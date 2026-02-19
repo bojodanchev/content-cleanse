@@ -1,21 +1,20 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   ArrowRight,
   ArrowLeft,
-  Upload,
   Image,
   Zap,
   Loader2,
   X,
-  File as FileIcon,
+  Plus,
+  GripVertical,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { CaptionEditor } from '@/components/captions/caption-editor'
+import { CaptionEditor, type CarouselPhoto } from '@/components/captions/caption-editor'
 import { CaptionSettings, CaptionSettingsValues } from '@/components/captions/caption-settings'
 import { ProgressTracker } from '@/components/upload/progress-tracker'
 import { getClient } from '@/lib/supabase/client'
@@ -31,7 +30,9 @@ const ACCEPTED_IMAGE_TYPES = {
   'image/webp': ['.webp'],
 }
 
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB per file
+const MAX_TOTAL_SIZE = 50 * 1024 * 1024 // 50MB combined
+const MAX_PHOTOS = 10
 
 const STEPS = [
   { id: 'upload', label: 'Upload', num: 1 },
@@ -42,15 +43,13 @@ const STEPS = [
 
 export default function CaptionsPage() {
   const [view, setView] = useState<ViewState>('upload')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<CarouselPhoto[]>([])
   const [uploading, setUploading] = useState(false)
   const [currentJob, setCurrentJob] = useState<Job | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Caption state
-  const [captions, setCaptions] = useState<string[]>([])
   const [captionSource, setCaptionSource] = useState<'manual' | 'ai'>('manual')
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiNiche, setAiNiche] = useState<string>('')
@@ -65,19 +64,20 @@ export default function CaptionsPage() {
 
   const supabase = getClient()
 
+  // Ref to always have current photos for unmount cleanup
+  const photosRef = useRef<CarouselPhoto[]>([])
+  photosRef.current = photos
+
   useEffect(() => {
     loadProfile()
   }, [])
 
-  // Generate preview URL for selected file
+  // Cleanup preview URLs on unmount
   useEffect(() => {
-    if (selectedFile) {
-      const url = URL.createObjectURL(selectedFile)
-      setPreviewUrl(url)
-      return () => URL.revokeObjectURL(url)
+    return () => {
+      photosRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl))
     }
-    setPreviewUrl(null)
-  }, [selectedFile])
+  }, [])
 
   // Subscribe to job updates via Realtime
   useEffect(() => {
@@ -99,22 +99,16 @@ export default function CaptionsPage() {
       )
       .subscribe()
 
-    // Detect stale jobs stuck in processing for >15 minutes
     const staleCheckInterval = setInterval(() => {
-      if (
-        currentJob.status === 'processing' &&
-        currentJob.created_at
-      ) {
+      if (currentJob.status === 'processing' && currentJob.created_at) {
         const elapsed = Date.now() - new Date(currentJob.created_at).getTime()
-        const fifteenMinutes = 15 * 60 * 1000
-        if (elapsed > fifteenMinutes) {
+        if (elapsed > 15 * 60 * 1000) {
           setCurrentJob((prev) =>
             prev
               ? {
                   ...prev,
                   status: 'failed' as const,
-                  error_message:
-                    'Processing timed out. The server may have encountered an error. Please try again.',
+                  error_message: 'Processing timed out. Please try again.',
                 }
               : prev
           )
@@ -129,46 +123,76 @@ export default function CaptionsPage() {
   }, [currentJob?.id])
 
   const loadProfile = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (data) setProfile(data)
   }
 
-  // Dropzone
+  const totalSize = photos.reduce((sum, p) => sum + p.file.size, 0)
+
+  const addPhotos = useCallback(
+    (files: File[]) => {
+      setError(null)
+      const remaining = MAX_PHOTOS - photos.length
+      if (remaining <= 0) {
+        setError(`Maximum ${MAX_PHOTOS} photos allowed.`)
+        return
+      }
+
+      const toAdd = files.slice(0, remaining)
+      let runningTotal = totalSize
+      const newPhotos: CarouselPhoto[] = []
+
+      for (const file of toAdd) {
+        runningTotal += file.size
+        if (runningTotal > MAX_TOTAL_SIZE) {
+          setError('Total file size exceeds 50MB. Remove some photos or use smaller files.')
+          break
+        }
+        newPhotos.push({
+          id: crypto.randomUUID(),
+          file,
+          previewUrl: URL.createObjectURL(file),
+          caption: '',
+        })
+      }
+
+      if (newPhotos.length > 0) {
+        setPhotos((prev) => [...prev, ...newPhotos])
+      }
+    },
+    [photos.length, totalSize]
+  )
+
   const onDrop = useCallback(
     (acceptedFiles: File[], rejectedFiles: unknown[]) => {
       setError(null)
       if (rejectedFiles.length > 0) {
-        setError('Invalid file. Please upload a JPG, PNG, or WebP image under 10MB.')
-        return
+        setError('Some files were rejected. Use JPG, PNG, or WebP images under 10MB each.')
       }
       if (acceptedFiles.length > 0) {
-        setSelectedFile(acceptedFiles[0])
+        addPhotos(acceptedFiles)
       }
     },
-    []
+    [addPhotos]
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: ACCEPTED_IMAGE_TYPES,
     maxSize: MAX_IMAGE_SIZE,
-    multiple: false,
+    multiple: true,
+    maxFiles: MAX_PHOTOS,
     disabled: uploading,
   })
 
-  const handleClearFile = () => {
-    setSelectedFile(null)
-    setError(null)
+  const removePhoto = (id: string) => {
+    setPhotos((prev) => {
+      const removed = prev.find((p) => p.id === id)
+      if (removed) URL.revokeObjectURL(removed.previewUrl)
+      return prev.filter((p) => p.id !== id)
+    })
   }
 
   // AI caption generation
@@ -182,8 +206,9 @@ export default function CaptionsPage() {
       formData.append('niche', niche)
       formData.append('style', style)
       formData.append('count', count.toString())
-      if (selectedFile) {
-        formData.append('image', selectedFile)
+      // Send first photo for vision-based generation
+      if (photos.length > 0) {
+        formData.append('image', photos[0].file)
       }
 
       const response = await fetch('/api/captions/generate', {
@@ -197,7 +222,13 @@ export default function CaptionsPage() {
       }
 
       const { captions: generated } = await response.json()
-      setCaptions(generated)
+      // Distribute generated captions 1:1 to photos
+      setPhotos((prev) =>
+        prev.map((p, i) => ({
+          ...p,
+          caption: i < generated.length ? generated[i] : p.caption,
+        }))
+      )
     } catch (err) {
       console.error('AI generation error:', err)
       setError(err instanceof Error ? err.message : 'Failed to generate captions')
@@ -208,33 +239,56 @@ export default function CaptionsPage() {
 
   // Start processing
   const handleStartProcessing = async () => {
-    if (!selectedFile || !profile || captions.length === 0) return
+    if (photos.length === 0 || !profile) return
+    const filledPhotos = photos.filter((p) => p.caption.trim().length > 0)
+    if (filledPhotos.length === 0) return
 
     setView('processing')
     setUploading(true)
 
     try {
-      // Upload photo to Supabase Storage (images bucket)
-      const fileName = `${profile.id}/${Date.now()}-${selectedFile.name}`
+      // Upload all photos in parallel to Supabase images bucket
+      const settled = await Promise.allSettled(
+        filledPhotos.map(async (photo) => {
+          const fileName = `${profile.id}/${Date.now()}-${photo.id}-${photo.file.name}`
+          const { error: uploadError } = await supabase.storage
+            .from('images')
+            .upload(fileName, photo.file)
+          if (uploadError) throw uploadError
+          return { file_path: fileName, caption: photo.caption }
+        })
+      )
 
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(fileName, selectedFile)
+      // Check for failures and clean up orphaned uploads
+      const failed = settled.filter((r) => r.status === 'rejected')
+      if (failed.length > 0) {
+        // Clean up any successful uploads to avoid orphaned files
+        const successPaths = settled
+          .filter((r): r is PromiseFulfilledResult<{ file_path: string; caption: string }> => r.status === 'fulfilled')
+          .map((r) => r.value.file_path)
+        if (successPaths.length > 0) {
+          await supabase.storage.from('images').remove(successPaths)
+        }
+        throw new Error(`Failed to upload ${failed.length} photo(s). Please try again.`)
+      }
 
-      if (uploadError) throw uploadError
+      const uploadResults = settled
+        .filter((r): r is PromiseFulfilledResult<{ file_path: string; caption: string }> => r.status === 'fulfilled')
+        .map((r) => r.value)
 
       // Create job via server API
       const createResponse = await fetch('/api/jobs/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          filePath: fileName,
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          variantCount: captions.length,
+          filePath: uploadResults[0].file_path, // first photo for job history display
+          fileName: filledPhotos[0].file.name,
+          fileSize: filledPhotos.reduce((sum, p) => sum + p.file.size, 0),
+          variantCount: filledPhotos.length,
           jobType: 'photo_captions',
           settings: {
-            captions,
+            photos: uploadResults,
+            captions: uploadResults.map((r) => r.caption),
             font_size: captionSettings.fontSize,
             position: captionSettings.position,
             generate_video: captionSettings.generateVideo,
@@ -286,7 +340,6 @@ export default function CaptionsPage() {
         const { data } = await supabase.storage
           .from('outputs')
           .createSignedUrl(currentJob.output_zip_path, 3600)
-
         if (data?.signedUrl) {
           const a = document.createElement('a')
           a.href = data.signedUrl
@@ -298,7 +351,6 @@ export default function CaptionsPage() {
         }
       }
 
-      // Fallback: list files and build ZIP client-side
       const { data: files } = await supabase.storage
         .from('outputs')
         .list(`${profile.id}/${currentJob.id}`, {
@@ -317,9 +369,7 @@ export default function CaptionsPage() {
         const { data } = await supabase.storage
           .from('outputs')
           .download(`${profile.id}/${currentJob.id}/${file.name}`)
-        if (data) {
-          zip.file(file.name, data)
-        }
+        if (data) zip.file(file.name, data)
       }
 
       const blob = await zip.generateAsync({ type: 'blob' })
@@ -338,10 +388,10 @@ export default function CaptionsPage() {
   }
 
   const handleNewJob = () => {
+    photos.forEach((p) => URL.revokeObjectURL(p.previewUrl))
     setView('upload')
-    setSelectedFile(null)
+    setPhotos([])
     setCurrentJob(null)
-    setCaptions([])
     setCaptionSource('manual')
     setAiNiche('')
     setAiStyle('')
@@ -349,20 +399,16 @@ export default function CaptionsPage() {
     setError(null)
   }
 
-  // Step index for stepper UI
   const stepIndex = STEPS.findIndex((s) => s.id === view)
-
-  // Validation
-  const canProceedToCaptions = !!selectedFile
-  const canProceedToSettings = captions.length > 0 && captions.every((c) => c.trim().length > 0)
+  const canProceedToCaptions = photos.length > 0
+  const canProceedToSettings = photos.some((p) => p.caption.trim().length > 0)
 
   return (
     <div className="p-8">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Photo Captions</h1>
         <p className="text-muted-foreground">
-          Upload a photo and generate captioned image variants
+          Upload photos and generate captioned image variants
         </p>
       </div>
 
@@ -404,13 +450,12 @@ export default function CaptionsPage() {
         ))}
       </div>
 
-      {/* Main content */}
       <div className="max-w-3xl mx-auto">
         <Card className="bg-card/50 border-border/50">
           <CardHeader>
             <CardTitle>
               {view === 'upload'
-                ? 'Upload Photo'
+                ? 'Upload Photos'
                 : view === 'captions'
                 ? 'Add Captions'
                 : view === 'settings'
@@ -429,35 +474,80 @@ export default function CaptionsPage() {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-6"
                 >
-                  {selectedFile ? (
-                    <div className="relative rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 p-6">
-                      <div className="flex items-start gap-4">
-                        {previewUrl && (
-                          <div className="w-24 h-24 rounded-xl overflow-hidden border border-border/50 shrink-0">
-                            <img
-                              src={previewUrl}
-                              alt="Preview"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{selectedFile.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatBytes(selectedFile.size)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleClearFile}
-                          className="shrink-0"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
+                  {/* Photo grid with reorder */}
+                  {photos.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">
+                          {photos.length}/{MAX_PHOTOS} photos ({formatBytes(totalSize)})
+                        </p>
                       </div>
+                      <Reorder.Group
+                        axis="y"
+                        values={photos}
+                        onReorder={setPhotos}
+                        className="space-y-2"
+                      >
+                        {photos.map((photo, i) => (
+                          <Reorder.Item
+                            key={photo.id}
+                            value={photo}
+                            className="flex items-center gap-3 rounded-xl border border-border/40 bg-secondary/20 p-2 cursor-grab active:cursor-grabbing group"
+                          >
+                            <GripVertical className="w-4 h-4 text-muted-foreground/50 shrink-0" />
+                            <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-border/50 shrink-0">
+                              <img
+                                src={photo.previewUrl}
+                                alt={`Photo ${i + 1}`}
+                                className="w-full h-full object-cover pointer-events-none"
+                              />
+                              <div className="absolute top-0 left-0 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-br-md">
+                                {i + 1}
+                              </div>
+                            </div>
+                            <p className="flex-1 text-sm truncate text-muted-foreground">
+                              {photo.file.name}
+                            </p>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {formatBytes(photo.file.size)}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removePhoto(photo.id)
+                              }}
+                              className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </Reorder.Item>
+                        ))}
+                      </Reorder.Group>
+
+                      {/* Add more zone */}
+                      {photos.length < MAX_PHOTOS && (
+                        <div
+                          {...getRootProps()}
+                          className={cn(
+                            'rounded-xl border-2 border-dashed p-4 flex items-center justify-center gap-2 cursor-pointer transition-colors',
+                            isDragActive
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border/50 hover:border-primary/50'
+                          )}
+                        >
+                          <input {...getInputProps()} />
+                          <Plus className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">Add more photos</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Drag to reorder.
+                      </p>
                     </div>
-                  ) : (
+                  )}
+
+                  {/* Empty state dropzone */}
+                  {photos.length === 0 && (
                     <div
                       {...getRootProps()}
                       className={cn(
@@ -480,18 +570,18 @@ export default function CaptionsPage() {
                         </motion.div>
                         {isDragActive ? (
                           <p className="text-xl font-medium text-primary">
-                            Drop your photo here
+                            Drop your photos here
                           </p>
                         ) : (
                           <>
                             <p className="text-xl font-medium mb-2">
-                              Drag & drop your photo
+                              Drag & drop your photos
                             </p>
                             <p className="text-muted-foreground mb-4">
-                              or click to browse files
+                              or click to browse (up to {MAX_PHOTOS} photos)
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              JPG, PNG, WebP up to 10MB
+                              JPG, PNG, WebP &middot; 10MB each &middot; 50MB total
                             </p>
                           </>
                         )}
@@ -537,8 +627,8 @@ export default function CaptionsPage() {
                   className="space-y-6"
                 >
                   <CaptionEditor
-                    captions={captions}
-                    onChange={setCaptions}
+                    photos={photos}
+                    onPhotosChange={setPhotos}
                     onAiGenerate={handleAiGenerate}
                     aiGenerating={aiGenerating}
                     captionSource={captionSource}
@@ -587,8 +677,8 @@ export default function CaptionsPage() {
                   <CaptionSettings
                     settings={captionSettings}
                     onChange={setCaptionSettings}
-                    captionCount={captions.length}
-                    previewUrl={previewUrl}
+                    captionCount={photos.filter((p) => p.caption.trim().length > 0).length}
+                    previewUrl={photos.length > 0 ? photos[0].previewUrl : null}
                   />
 
                   <div className="flex items-center justify-between pt-4 border-t border-border/40">
@@ -636,7 +726,6 @@ export default function CaptionsPage() {
                 </motion.div>
               )}
 
-              {/* Loading state while uploading before job is created */}
               {view === 'processing' && !currentJob && (
                 <motion.div
                   key="uploading"
@@ -645,9 +734,9 @@ export default function CaptionsPage() {
                   className="text-center py-12"
                 >
                   <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin mb-4" />
-                  <p className="text-lg font-medium">Uploading photo...</p>
+                  <p className="text-lg font-medium">Uploading photos...</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Please wait while we upload your image
+                    Please wait while we upload your images
                   </p>
                 </motion.div>
               )}

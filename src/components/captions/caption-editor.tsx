@@ -2,16 +2,22 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, GripVertical, PenLine } from 'lucide-react'
+import { Plus, Trash2, PenLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AiCaptionForm } from './ai-caption-form'
 
+export interface CarouselPhoto {
+  id: string
+  file: File
+  previewUrl: string
+  caption: string
+}
+
 interface CaptionEditorProps {
-  captions: string[]
-  onChange: (captions: string[]) => void
+  photos: CarouselPhoto[]
+  onPhotosChange: (photos: CarouselPhoto[]) => void
   onAiGenerate: (niche: string, style: string, count: number) => Promise<void>
   aiGenerating: boolean
   captionSource: 'manual' | 'ai'
@@ -19,42 +25,42 @@ interface CaptionEditorProps {
 }
 
 export function CaptionEditor({
-  captions,
-  onChange,
+  photos,
+  onPhotosChange,
   onAiGenerate,
   aiGenerating,
   captionSource,
   onSourceChange,
 }: CaptionEditorProps) {
-  const [manualInput, setManualInput] = useState('')
+  const [bulkInput, setBulkInput] = useState('')
 
-  const handleManualPaste = () => {
-    if (!manualInput.trim()) return
-    const lines = manualInput
+  const handleCaptionEdit = (id: string, value: string) => {
+    onPhotosChange(
+      photos.map((p) => (p.id === id ? { ...p, caption: value } : p))
+    )
+  }
+
+  const handleBulkPaste = () => {
+    if (!bulkInput.trim()) return
+    const lines = bulkInput
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l.length > 0)
-    onChange([...captions, ...lines])
-    setManualInput('')
+
+    // Distribute lines across photos in order
+    const updated = photos.map((p, i) => ({
+      ...p,
+      caption: i < lines.length ? lines[i] : p.caption,
+    }))
+    onPhotosChange(updated)
+    setBulkInput('')
   }
 
-  const handleAddSingle = () => {
-    onChange([...captions, ''])
+  const handleClearAllCaptions = () => {
+    onPhotosChange(photos.map((p) => ({ ...p, caption: '' })))
   }
 
-  const handleEdit = (index: number, value: string) => {
-    const updated = [...captions]
-    updated[index] = value
-    onChange(updated)
-  }
-
-  const handleDelete = (index: number) => {
-    onChange(captions.filter((_, i) => i !== index))
-  }
-
-  const handleClearAll = () => {
-    onChange([])
-  }
+  const filledCount = photos.filter((p) => p.caption.trim().length > 0).length
 
   return (
     <div className="space-y-4">
@@ -76,94 +82,91 @@ export function CaptionEditor({
         <TabsContent value="manual" className="mt-4 space-y-4">
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">
-              Paste captions (one per line) or add individually
+              Paste captions (one per line) to fill photos in order
             </Label>
             <textarea
-              value={manualInput}
-              onChange={(e) => setManualInput(e.target.value)}
-              placeholder={"First caption here\nSecond caption here\nThird caption here"}
-              rows={4}
+              value={bulkInput}
+              onChange={(e) => setBulkInput(e.target.value)}
+              placeholder={"Caption for photo 1\nCaption for photo 2\nCaption for photo 3"}
+              rows={3}
               className="w-full rounded-xl border border-border/50 bg-secondary/30 p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
             />
             <Button
-              onClick={handleManualPaste}
+              onClick={handleBulkPaste}
               variant="outline"
               size="sm"
-              disabled={!manualInput.trim()}
+              disabled={!bulkInput.trim()}
               className="border-border/50"
             >
               <Plus className="w-4 h-4 mr-1" />
-              Add Captions
+              Apply Captions
             </Button>
           </div>
         </TabsContent>
 
         <TabsContent value="ai" className="mt-4">
-          <AiCaptionForm onGenerate={onAiGenerate} generating={aiGenerating} />
+          <AiCaptionForm
+            onGenerate={onAiGenerate}
+            generating={aiGenerating}
+            photoCount={photos.length}
+          />
         </TabsContent>
       </Tabs>
 
-      {/* Caption list */}
-      {captions.length > 0 && (
+      {/* Per-photo caption list */}
+      {photos.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">
-              Captions ({captions.length})
+              Captions ({filledCount}/{photos.length})
             </Label>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearAll}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-1" />
-              Clear All
-            </Button>
+            {filledCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearAllCaptions}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                Clear All
+              </Button>
+            )}
           </div>
 
-          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
             <AnimatePresence mode="popLayout">
-              {captions.map((caption, i) => (
+              {photos.map((photo, i) => (
                 <motion.div
-                  key={i}
+                  key={photo.id}
                   layout
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="flex items-center gap-2 group"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex items-start gap-3 rounded-xl border border-border/40 bg-secondary/20 p-3"
                 >
-                  <GripVertical className="w-4 h-4 text-muted-foreground/50 shrink-0" />
-                  <span className="text-xs text-muted-foreground w-6 text-right shrink-0">
-                    {i + 1}.
-                  </span>
-                  <Input
-                    value={caption}
-                    onChange={(e) => handleEdit(i, e.target.value)}
-                    className="flex-1 bg-secondary/30 border-border/40 text-sm h-9"
-                    placeholder="Enter caption..."
+                  {/* Thumbnail */}
+                  <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-border/50 shrink-0">
+                    <img
+                      src={photo.previewUrl}
+                      alt={`Photo ${i + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-0 left-0 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-br-md">
+                      {i + 1}
+                    </div>
+                  </div>
+                  {/* Caption input */}
+                  <textarea
+                    value={photo.caption}
+                    onChange={(e) => handleCaptionEdit(photo.id, e.target.value)}
+                    placeholder={`Caption for photo ${i + 1}...`}
+                    rows={2}
+                    className="flex-1 rounded-lg border border-border/40 bg-background/50 p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(i)}
-                    className="shrink-0 h-9 w-9 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddSingle}
-            className="border-border/50 border-dashed"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Add Caption
-          </Button>
         </div>
       )}
     </div>

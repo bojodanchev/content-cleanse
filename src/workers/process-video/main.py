@@ -414,9 +414,14 @@ def process_captions(
     user_id: str,
     supabase_url: str,
     supabase_key: str,
+    photos: List[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
-    Process a photo with captions to create unique image variants.
+    Process photo(s) with captions to create unique image variants.
+
+    Supports two modes:
+    - Single-photo mode (legacy): one source_path + list of captions
+    - Multi-photo mode: each entry in photos has its own file_path + caption
 
     For each caption:
     1. Resize/crop source photo to 1080x1920
@@ -446,74 +451,149 @@ def process_captions(
     font_path = "/assets/fonts/Anton-Regular.ttf"
     if not Path(font_path).exists():
         raise FileNotFoundError(f"Font not found: {font_path}. Check Modal font mount.")
-    variant_count = len(captions)
 
     try:
         update_job_status(supabase, job_id, "processing", 0)
 
-        # Download source photo from images bucket
-        print(f"Downloading source photo: {source_path}")
-        response = supabase.storage.from_("images").download(source_path)
-        input_path = work_dir / "input.jpg"
-        input_path.write_bytes(response)
-
-        # Resize/crop once (all variants share the same base)
-        base_img = Image.open(input_path).convert("RGB")
-        base_img = resize_and_crop(base_img)
-
         variants = []
-        for i, caption in enumerate(captions):
-            variant_name = f"variant_{i+1:03d}.jpg"
-            variant_path = output_dir / variant_name
 
-            # Render caption on a copy of the base image
-            captioned = render_caption(base_img, caption, font_path, font_size, position)
+        if photos:
+            # Multi-photo mode: each photo has its own file_path + caption
+            variant_count = len(photos)
+            image_cache: Dict[str, Image.Image] = {}  # path -> resized PIL Image
 
-            # Apply light augmentation
-            augmented = augment_image(captioned)
+            for i, photo_entry in enumerate(photos):
+                photo_path = photo_entry["file_path"]
+                caption = photo_entry["caption"]
+                variant_name = f"variant_{i+1:03d}.jpg"
+                variant_path = output_dir / variant_name
 
-            # Save with metadata stripped
-            save_clean(augmented, variant_path)
+                # Download and cache image
+                if photo_path not in image_cache:
+                    print(f"Downloading photo: {photo_path}")
+                    img_bytes = supabase.storage.from_("images").download(photo_path)
+                    tmp_path = work_dir / f"photo_{len(image_cache)}.jpg"
+                    tmp_path.write_bytes(img_bytes)
+                    img = Image.open(tmp_path).convert("RGB")
+                    image_cache[photo_path] = resize_and_crop(img)
 
-            file_size = variant_path.stat().st_size
-            file_hash = calculate_file_hash(str(variant_path))
+                base_img = image_cache[photo_path]
 
-            variants.append({
-                "name": variant_name,
-                "path": str(variant_path),
-                "hash": file_hash,
-                "size": file_size,
-                "caption": caption,
-            })
+                # Render caption on a copy of the base image
+                captioned = render_caption(base_img, caption, font_path, font_size, position)
 
-            # Upload variant to Supabase Storage
-            variant_storage_path = f"{user_id}/{job_id}/{variant_name}"
-            try:
-                with open(variant_path, "rb") as vf:
-                    supabase.storage.from_("outputs").upload(
-                        variant_storage_path,
-                        vf.read(),
-                        {"content-type": "image/jpeg"},
-                    )
-            except Exception as upload_err:
-                print(f"Warning: Failed to upload variant {variant_name}: {upload_err}")
+                # Apply light augmentation
+                augmented = augment_image(captioned)
 
-            # Insert variant record
-            try:
-                supabase.table("variants").insert({
-                    "job_id": job_id,
-                    "file_path": variant_storage_path,
-                    "file_size": file_size,
-                    "file_hash": file_hash,
-                    "caption_text": caption,
-                    "transformations": {"font_size": font_size, "position": position},
-                }).execute()
-            except Exception as db_err:
-                print(f"Warning: Failed to insert variant record {variant_name}: {db_err}")
+                # Save with metadata stripped
+                save_clean(augmented, variant_path)
 
-            progress = int((i + 1) / variant_count * 100)
-            update_job_status(supabase, job_id, "processing", progress, i + 1)
-            print(f"Caption variant {i+1}/{variant_count} complete")
+                file_size = variant_path.stat().st_size
+                file_hash = calculate_file_hash(str(variant_path))
+
+                variants.append({
+                    "name": variant_name,
+                    "path": str(variant_path),
+                    "hash": file_hash,
+                    "size": file_size,
+                    "caption": caption,
+                })
+
+                # Upload variant to Supabase Storage
+                variant_storage_path = f"{user_id}/{job_id}/{variant_name}"
+                try:
+                    with open(variant_path, "rb") as vf:
+                        supabase.storage.from_("outputs").upload(
+                            variant_storage_path,
+                            vf.read(),
+                            {"content-type": "image/jpeg"},
+                        )
+                except Exception as upload_err:
+                    print(f"Warning: Failed to upload variant {variant_name}: {upload_err}")
+
+                # Insert variant record
+                try:
+                    supabase.table("variants").insert({
+                        "job_id": job_id,
+                        "file_path": variant_storage_path,
+                        "file_size": file_size,
+                        "file_hash": file_hash,
+                        "caption_text": caption,
+                        "transformations": {"font_size": font_size, "position": position},
+                    }).execute()
+                except Exception as db_err:
+                    print(f"Warning: Failed to insert variant record {variant_name}: {db_err}")
+
+                progress = int((i + 1) / variant_count * 100)
+                update_job_status(supabase, job_id, "processing", progress, i + 1)
+                print(f"Caption variant {i+1}/{variant_count} complete")
+
+        else:
+            # Single-photo mode (legacy): one source image + list of captions
+            variant_count = len(captions)
+
+            # Download source photo from images bucket
+            print(f"Downloading source photo: {source_path}")
+            response = supabase.storage.from_("images").download(source_path)
+            input_path = work_dir / "input.jpg"
+            input_path.write_bytes(response)
+
+            # Resize/crop once (all variants share the same base)
+            base_img = Image.open(input_path).convert("RGB")
+            base_img = resize_and_crop(base_img)
+
+            for i, caption in enumerate(captions):
+                variant_name = f"variant_{i+1:03d}.jpg"
+                variant_path = output_dir / variant_name
+
+                # Render caption on a copy of the base image
+                captioned = render_caption(base_img, caption, font_path, font_size, position)
+
+                # Apply light augmentation
+                augmented = augment_image(captioned)
+
+                # Save with metadata stripped
+                save_clean(augmented, variant_path)
+
+                file_size = variant_path.stat().st_size
+                file_hash = calculate_file_hash(str(variant_path))
+
+                variants.append({
+                    "name": variant_name,
+                    "path": str(variant_path),
+                    "hash": file_hash,
+                    "size": file_size,
+                    "caption": caption,
+                })
+
+                # Upload variant to Supabase Storage
+                variant_storage_path = f"{user_id}/{job_id}/{variant_name}"
+                try:
+                    with open(variant_path, "rb") as vf:
+                        supabase.storage.from_("outputs").upload(
+                            variant_storage_path,
+                            vf.read(),
+                            {"content-type": "image/jpeg"},
+                        )
+                except Exception as upload_err:
+                    print(f"Warning: Failed to upload variant {variant_name}: {upload_err}")
+
+                # Insert variant record
+                try:
+                    supabase.table("variants").insert({
+                        "job_id": job_id,
+                        "file_path": variant_storage_path,
+                        "file_size": file_size,
+                        "file_hash": file_hash,
+                        "caption_text": caption,
+                        "transformations": {"font_size": font_size, "position": position},
+                    }).execute()
+                except Exception as db_err:
+                    print(f"Warning: Failed to insert variant record {variant_name}: {db_err}")
+
+                progress = int((i + 1) / variant_count * 100)
+                update_job_status(supabase, job_id, "processing", progress, i + 1)
+                print(f"Caption variant {i+1}/{variant_count} complete")
 
         # Optionally generate slideshow video
         output_video_path = None
@@ -1066,6 +1146,7 @@ def start_caption_processing(item: dict):
         user_id=item["user_id"],
         supabase_url=item["supabase_url"],
         supabase_key=item["supabase_key"],
+        photos=item.get("photos"),
     )
 
     return {"status": "queued", "call_id": call.object_id}

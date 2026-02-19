@@ -12,7 +12,7 @@ import {
   Repeat,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FaceSelector } from '@/components/faceswap/face-selector'
 import { FaceswapSettings, FaceswapSettingsValues } from '@/components/faceswap/faceswap-settings'
 import { ProgressTracker } from '@/components/upload/progress-tracker'
@@ -35,8 +35,8 @@ const ACCEPTED_TYPES = {
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 
 const STEPS = [
-  { id: 'upload', label: 'Upload', num: 1 },
-  { id: 'face', label: 'Face', num: 2 },
+  { id: 'upload', label: 'Source', num: 1 },
+  { id: 'face', label: 'New Face', num: 2 },
   { id: 'settings', label: 'Settings', num: 3 },
   { id: 'processing', label: 'Processing', num: 4 },
 ]
@@ -375,11 +375,17 @@ export default function FaceswapPage() {
         <Card className="bg-card/50 border-border/50">
           <CardHeader>
             <CardTitle>
-              {view === 'upload' ? 'Upload Source Media'
-                : view === 'face' ? 'Select Model Face'
+              {view === 'upload' ? 'Upload the video or photo to modify'
+                : view === 'face' ? 'Choose the replacement face'
                 : view === 'settings' ? 'Configure Output'
                 : 'Processing'}
             </CardTitle>
+            {view === 'upload' && (
+              <CardDescription>This is the original content where faces will be swapped</CardDescription>
+            )}
+            {view === 'face' && (
+              <CardDescription>Upload a clear, front-facing photo of the face to swap in</CardDescription>
+            )}
           </CardHeader>
           <CardContent>
             <AnimatePresence mode="wait">
@@ -431,7 +437,7 @@ export default function FaceswapPage() {
                           <p className="text-xl font-medium text-primary">Drop your file here</p>
                         ) : (
                           <>
-                            <p className="text-xl font-medium mb-2">Drag & drop your video or photo</p>
+                            <p className="text-xl font-medium mb-2">Drop the video or photo you want faces swapped in</p>
                             <p className="text-muted-foreground mb-4">or click to browse files</p>
                             <p className="text-sm text-muted-foreground">MP4, MOV, JPG, PNG, WebP up to 50MB</p>
                           </>

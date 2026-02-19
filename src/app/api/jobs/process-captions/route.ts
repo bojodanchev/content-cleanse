@@ -88,11 +88,16 @@ export async function POST(request: Request) {
     const planConfig = getPlanById(profile.plan)
     const maxVariants = planConfig?.variantLimit ?? 10
     const settings = job.settings as CaptionSettings
-    const captionCount = settings.captions?.length ?? 0
+    const hasPhotos = Array.isArray(settings.photos) && settings.photos.length > 0
+    const itemCount = hasPhotos ? settings.photos!.length : (settings.captions?.length ?? 0)
 
-    if (captionCount > maxVariants) {
-      // Clamp captions to plan limit
-      settings.captions = settings.captions.slice(0, maxVariants)
+    if (itemCount > maxVariants) {
+      if (hasPhotos) {
+        settings.photos = settings.photos!.slice(0, maxVariants)
+        settings.captions = settings.photos!.map(p => p.caption)
+      } else {
+        settings.captions = settings.captions.slice(0, maxVariants)
+      }
       await serviceClient
         .from('jobs')
         .update({

@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 interface AiCaptionFormProps {
   onGenerate: (niche: string, style: string, count: number) => Promise<void>
   generating: boolean
+  photoCount: number
 }
 
 const NICHES = [
@@ -24,15 +25,12 @@ const STYLES = [
   { id: 'mixed', label: 'Mixed', desc: 'Variety pack' },
 ]
 
-const COUNTS = [10, 25, 50]
-
-export function AiCaptionForm({ onGenerate, generating }: AiCaptionFormProps) {
+export function AiCaptionForm({ onGenerate, generating, photoCount }: AiCaptionFormProps) {
   const [niche, setNiche] = useState<string>('nurse')
   const [style, setStyle] = useState<string>('mixed')
-  const [count, setCount] = useState<number>(10)
 
   const handleGenerate = () => {
-    onGenerate(niche, style, count)
+    onGenerate(niche, style, photoCount)
   }
 
   return (
@@ -83,24 +81,9 @@ export function AiCaptionForm({ onGenerate, generating }: AiCaptionFormProps) {
         </div>
       </div>
 
-      {/* Count selector */}
-      <div className="space-y-3">
-        <Label className="text-base font-medium">Number of Captions</Label>
-        <div className="flex gap-2">
-          {COUNTS.map((c) => (
-            <Button
-              key={c}
-              variant={count === c ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setCount(c)}
-              className={cn(
-                count === c ? 'bg-primary' : 'border-border/50'
-              )}
-            >
-              {c}
-            </Button>
-          ))}
-        </div>
+      {/* Info about count */}
+      <div className="rounded-lg bg-secondary/30 border border-border/40 px-3 py-2 text-sm text-muted-foreground">
+        Will generate <span className="font-medium text-foreground">{photoCount}</span> caption{photoCount !== 1 ? 's' : ''} (one per photo)
       </div>
 
       {/* Generate button */}
@@ -110,7 +93,7 @@ export function AiCaptionForm({ onGenerate, generating }: AiCaptionFormProps) {
       >
         <Button
           onClick={handleGenerate}
-          disabled={generating}
+          disabled={generating || photoCount === 0}
           className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
         >
           {generating ? (
@@ -121,7 +104,7 @@ export function AiCaptionForm({ onGenerate, generating }: AiCaptionFormProps) {
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              Generate {count} Captions
+              Generate {photoCount} Caption{photoCount !== 1 ? 's' : ''}
             </>
           )}
         </Button>

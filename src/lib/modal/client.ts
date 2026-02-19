@@ -140,6 +140,7 @@ export async function triggerCaptionProcessing(
       body: JSON.stringify({
         job_id: request.jobId,
         source_path: request.sourcePath,
+        photos: request.settings.photos,
         captions: request.settings.captions,
         font_size: request.settings.font_size,
         position: request.settings.position,

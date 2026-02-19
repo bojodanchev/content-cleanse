@@ -20,8 +20,14 @@ export type CaptionPosition = 'top' | 'center' | 'bottom'
 
 export type CaptionSource = 'manual' | 'ai'
 
+export interface CaptionPhotoEntry {
+  file_path: string
+  caption: string
+}
+
 export interface CaptionSettings {
   captions: string[]
+  photos?: CaptionPhotoEntry[]
   font_size: FontSize
   position: CaptionPosition
   generate_video: boolean
