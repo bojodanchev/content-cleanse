@@ -1,0 +1,6 @@
+src/app/(dashboard)/instagram-import/
+src/app/api/instagram/
+src/workers/instagram-downloader/
+supabase/migrations/008_instagram_imports.sql
+.playwright-mcp/
+tools/
