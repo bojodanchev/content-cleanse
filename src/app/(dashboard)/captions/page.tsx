@@ -32,7 +32,7 @@ const ACCEPTED_IMAGE_TYPES = {
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10MB per file
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024 // 50MB combined
-const MAX_PHOTOS = 10
+const MAX_PHOTOS = 20
 
 const STEPS = [
   { id: 'upload', label: 'Upload', num: 1 },
