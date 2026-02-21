@@ -49,6 +49,13 @@ interface ModalImageJobRequest {
   userId: string
 }
 
+interface ModalMultiplyJobRequest {
+  jobId: string
+  parentJobId: string
+  copyCount: number
+  userId: string
+}
+
 interface ModalJobResponse {
   status: 'queued' | 'error'
   callId?: string
@@ -305,6 +312,69 @@ export async function triggerImageProcessing(
     }
   } catch (error) {
     console.error('Failed to trigger Modal image job:', error)
+    return {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+export async function triggerMultiplyProcessing(
+  request: ModalMultiplyJobRequest
+): Promise<ModalJobResponse> {
+  const endpointUrl = process.env.MODAL_ENDPOINT_URL
+
+  if (!endpointUrl) {
+    console.error('MODAL_ENDPOINT_URL not configured')
+    return { status: 'error', error: 'Modal endpoint not configured' }
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase credentials not configured')
+    return { status: 'error', error: 'Supabase credentials not configured' }
+  }
+
+  const multiplyEndpointUrl = endpointUrl.replace(
+    'start-processing',
+    'start-multiply-processing'
+  )
+
+  try {
+    const response = await fetch(multiplyEndpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        job_id: request.jobId,
+        parent_job_id: request.parentJobId,
+        copy_count: request.copyCount,
+        user_id: request.userId,
+        supabase_url: supabaseUrl,
+        supabase_key: supabaseKey,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Modal multiply endpoint error (${response.status}): ${error}`)
+    }
+
+    const result = await response.json()
+
+    if (result.status === 'error') {
+      return { status: 'error', error: result.error }
+    }
+
+    return {
+      status: 'queued',
+      callId: result.call_id,
+    }
+  } catch (error) {
+    console.error('Failed to trigger Modal multiply job:', error)
     return {
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',

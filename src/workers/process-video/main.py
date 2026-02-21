@@ -1328,6 +1328,211 @@ def start_image_processing(item: dict):
 
 
 # ============================================================
+# Carousel Multiply Processing
+# ============================================================
+
+@app.function(
+    image=image,
+    timeout=600,
+    cpu=2,
+    memory=4096,
+)
+def process_multiply(
+    job_id: str,
+    parent_job_id: str,
+    copy_count: int,
+    user_id: str,
+    supabase_url: str,
+    supabase_key: str,
+) -> Dict[str, Any]:
+    """
+    Create N unique copies of an entire caption carousel.
+
+    Each copy gets the same slides but with imperceptible visual tweaks
+    (brightness, saturation, color tint, metadata strip) so each set
+    is safe to post on a different account without duplicate detection.
+
+    Output: N separate carousel folders in a ZIP.
+    """
+    from supabase import create_client, Client
+    from PIL import Image
+    import sys
+
+    sys.path.insert(0, "/helpers")
+    from image_augmenter import augment_image, save_clean
+
+    supabase: Client = create_client(supabase_url, supabase_key)
+
+    work_dir = Path(f"/tmp/{job_id}")
+    work_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = work_dir / "variants"
+    output_dir.mkdir(exist_ok=True)
+
+    try:
+        update_job_status(supabase, job_id, "processing", 0)
+
+        # Fetch parent job's variants (the source slides)
+        result = supabase.table("variants").select("*").eq(
+            "job_id", parent_job_id
+        ).order("created_at").execute()
+
+        source_variants = result.data
+        slide_count = len(source_variants)
+
+        if slide_count == 0:
+            raise ValueError("Parent job has no output slides")
+
+        # Download all source slides from outputs bucket
+        print(f"Downloading {slide_count} source slides...")
+        source_images = []
+        for sv in source_variants:
+            file_path = sv["file_path"]
+            img_bytes = supabase.storage.from_("outputs").download(file_path)
+            tmp_path = work_dir / f"source_{len(source_images)}.jpg"
+            tmp_path.write_bytes(img_bytes)
+            img = Image.open(tmp_path).convert("RGB")
+            source_images.append(img)
+            print(f"  Downloaded slide: {file_path}")
+
+        total_items = slide_count * copy_count
+        completed = 0
+        all_variants = []
+
+        # For each copy set, augment every slide
+        for s in range(1, copy_count + 1):
+            set_dir = output_dir / f"set_{s:02d}"
+            set_dir.mkdir(exist_ok=True)
+
+            for m in range(1, slide_count + 1):
+                slide_name = f"slide_{m:03d}.jpg"
+                slide_path = set_dir / slide_name
+
+                # Apply light augmentation to a copy of the source
+                augmented = augment_image(source_images[m - 1].copy())
+                save_clean(augmented, slide_path)
+
+                file_size = slide_path.stat().st_size
+                file_hash = calculate_file_hash(str(slide_path))
+
+                # Upload to outputs bucket
+                storage_path = f"{user_id}/{job_id}/set_{s:02d}/{slide_name}"
+                try:
+                    with open(slide_path, "rb") as f:
+                        supabase.storage.from_("outputs").upload(
+                            storage_path,
+                            f.read(),
+                            {"content-type": "image/jpeg"},
+                        )
+                except Exception as upload_err:
+                    print(f"Warning: Failed to upload {storage_path}: {upload_err}")
+
+                # Insert variant record
+                try:
+                    supabase.table("variants").insert({
+                        "job_id": job_id,
+                        "file_path": storage_path,
+                        "file_size": file_size,
+                        "file_hash": file_hash,
+                        "transformations": {
+                            "type": "multiply",
+                            "set": s,
+                            "slide": m,
+                        },
+                    }).execute()
+                except Exception as db_err:
+                    print(f"Warning: Failed to insert variant record: {db_err}")
+
+                all_variants.append({
+                    "name": f"set_{s:02d}/{slide_name}",
+                    "path": str(slide_path),
+                })
+
+                completed += 1
+                progress = int(completed / total_items * 95)  # Reserve 5% for ZIP
+                update_job_status(supabase, job_id, "processing", progress, completed)
+
+            print(f"Set {s}/{copy_count} complete")
+
+        # Create ZIP preserving folder structure
+        print("Creating ZIP archive...")
+        zip_path = work_dir / f"{job_id}_multiply.zip"
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for variant in all_variants:
+                zf.write(variant["path"], variant["name"])
+
+        output_zip_storage = f"{user_id}/{job_id}/multiply.zip"
+        try:
+            with open(zip_path, "rb") as f:
+                supabase.storage.from_("outputs").upload(
+                    output_zip_storage,
+                    f.read(),
+                    {"content-type": "application/zip"},
+                )
+        except Exception as zip_err:
+            print(f"Warning: Failed to upload ZIP: {zip_err}")
+            output_zip_storage = None
+
+        # Mark job completed
+        supabase.table("jobs").update({
+            "status": "completed",
+            "progress": 100,
+            "variants_completed": total_items,
+            "output_zip_path": output_zip_storage,
+            "completed_at": datetime.utcnow().isoformat(),
+        }).eq("id", job_id).execute()
+
+        return {
+            "status": "completed",
+            "variants_created": total_items,
+            "output_path": output_zip_storage,
+        }
+
+    except Exception as e:
+        print(f"Error processing multiply: {e}")
+        try:
+            supabase.table("jobs").update({
+                "status": "failed",
+                "error_message": str(e)[:500],
+                "error_code": type(e).__name__,
+            }).eq("id", job_id).execute()
+        except Exception as status_err:
+            print(f"CRITICAL: Failed to update job status: {status_err}")
+        raise
+
+    finally:
+        import shutil
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
+@app.function(image=image)
+@modal.fastapi_endpoint(method="POST")
+def start_multiply_processing(item: dict):
+    """
+    Web endpoint to trigger carousel multiply processing.
+    Called from the Next.js API route via HTTP POST.
+    Spawns process_multiply asynchronously and returns immediately.
+    """
+    required = [
+        "job_id", "parent_job_id", "copy_count",
+        "user_id", "supabase_url", "supabase_key",
+    ]
+    missing = [k for k in required if k not in item]
+    if missing:
+        return {"status": "error", "error": f"Missing fields: {missing}"}
+
+    call = process_multiply.spawn(
+        job_id=item["job_id"],
+        parent_job_id=item["parent_job_id"],
+        copy_count=item["copy_count"],
+        user_id=item["user_id"],
+        supabase_url=item["supabase_url"],
+        supabase_key=item["supabase_key"],
+    )
+
+    return {"status": "queued", "call_id": call.object_id}
+
+
+# ============================================================
 # Faceswap Processing Endpoint
 # ============================================================
 

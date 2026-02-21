@@ -8,7 +8,7 @@ export type Json =
 
 export type JobStatus = 'pending' | 'uploading' | 'processing' | 'completed' | 'failed'
 
-export type JobType = 'video' | 'photo_captions' | 'faceswap' | 'photo_clean'
+export type JobType = 'video' | 'photo_captions' | 'faceswap' | 'photo_clean' | 'carousel_multiply'
 
 export type Plan = 'free' | 'pro' | 'agency'
 
@@ -42,6 +42,12 @@ export interface FaceswapSettings {
   source_type: 'video' | 'image'
   swap_only: boolean
   variant_count: number
+}
+
+export interface MultiplySettings {
+  copy_count: number
+  source_job_id: string
+  slide_count: number
 }
 
 export interface ProcessingSettings {
@@ -123,7 +129,7 @@ export interface Database {
           source_file_size: number | null
           source_duration: number | null
           variant_count: number
-          settings: ProcessingSettings | CaptionSettings | FaceswapSettings
+          settings: ProcessingSettings | CaptionSettings | FaceswapSettings | MultiplySettings
           progress: number
           variants_completed: number
           output_zip_path: string | null
@@ -132,6 +138,7 @@ export interface Database {
           created_at: string
           started_at: string | null
           completed_at: string | null
+          parent_job_id: string | null
         }
         Insert: {
           id?: string
@@ -143,7 +150,7 @@ export interface Database {
           source_file_size?: number | null
           source_duration?: number | null
           variant_count?: number
-          settings?: ProcessingSettings | CaptionSettings | FaceswapSettings | Record<string, never>
+          settings?: ProcessingSettings | CaptionSettings | FaceswapSettings | MultiplySettings | Record<string, never>
           progress?: number
           variants_completed?: number
           output_zip_path?: string | null
@@ -152,6 +159,7 @@ export interface Database {
           created_at?: string
           started_at?: string | null
           completed_at?: string | null
+          parent_job_id?: string | null
         }
         Update: {
           id?: string
@@ -163,7 +171,7 @@ export interface Database {
           source_file_size?: number | null
           source_duration?: number | null
           variant_count?: number
-          settings?: ProcessingSettings | CaptionSettings | FaceswapSettings | Record<string, never>
+          settings?: ProcessingSettings | CaptionSettings | FaceswapSettings | MultiplySettings | Record<string, never>
           progress?: number
           variants_completed?: number
           output_zip_path?: string | null
@@ -172,6 +180,7 @@ export interface Database {
           created_at?: string
           started_at?: string | null
           completed_at?: string | null
+          parent_job_id?: string | null
         }
       }
       variants: {

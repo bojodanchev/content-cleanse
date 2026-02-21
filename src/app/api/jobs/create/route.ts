@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { filePath, fileName, fileSize, variantCount, removeWatermark, addWatermark, jobType, settings } = await request.json()
+    const { filePath, fileName, fileSize, variantCount, removeWatermark, addWatermark, jobType, settings, parentJobId, copyCount } = await request.json()
 
     if (!filePath || !fileName) {
       return NextResponse.json({ error: 'File path and name required' }, { status: 400 })
@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     const isPhotoCaptions = jobType === 'photo_captions'
     const isFaceswap = jobType === 'faceswap'
     const isPhotoClean = jobType === 'photo_clean'
+    const isCarouselMultiply = jobType === 'carousel_multiply'
 
     // Pre-check faceswap-specific limit
     if (isFaceswap) {
@@ -126,6 +127,63 @@ export async function POST(request: Request) {
         source_file_size: fileSize || 0,
         variant_count: validatedVariantCount,
         settings: {},
+      }
+    } else if (isCarouselMultiply) {
+      if (!parentJobId) {
+        return NextResponse.json({ error: 'Parent job ID required for multiply' }, { status: 400 })
+      }
+
+      // Validate parent job
+      const { data: parentJob } = await serviceClient
+        .from('jobs')
+        .select('*')
+        .eq('id', parentJobId)
+        .eq('user_id', user.id)
+        .single()
+
+      if (!parentJob || parentJob.status !== 'completed' || parentJob.job_type !== 'photo_captions') {
+        return NextResponse.json(
+          { error: 'Parent job must be a completed photo captions job' },
+          { status: 400 }
+        )
+      }
+
+      // Count parent job's slides
+      const { count: slideCount } = await serviceClient
+        .from('variants')
+        .select('id', { count: 'exact', head: true })
+        .eq('job_id', parentJobId)
+
+      const slides = slideCount ?? 0
+      if (slides === 0) {
+        return NextResponse.json({ error: 'Parent job has no output slides' }, { status: 400 })
+      }
+
+      // Cap copy count based on plan variant limit
+      const requestedCopies = Math.max(2, copyCount || 5)
+      const cappedCopies = Math.min(requestedCopies, Math.floor(maxVariants / slides))
+
+      if (cappedCopies < 2) {
+        return NextResponse.json(
+          { error: 'Not enough variant capacity for multiply. Need at least 2 copies.' },
+          { status: 400 }
+        )
+      }
+
+      jobData = {
+        user_id: user.id,
+        job_type: 'carousel_multiply' as const,
+        status: 'pending' as const,
+        source_file_path: parentJob.source_file_path,
+        source_file_name: parentJob.source_file_name,
+        source_file_size: 0,
+        variant_count: slides * cappedCopies,
+        parent_job_id: parentJobId,
+        settings: {
+          copy_count: cappedCopies,
+          source_job_id: parentJobId,
+          slide_count: slides,
+        },
       }
     } else {
       // Video job (default)

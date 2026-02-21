@@ -5,12 +5,15 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   ArrowRight,
   ArrowLeft,
+  Copy,
+  Download,
   Image,
-  Zap,
   Loader2,
-  X,
   Plus,
+  RotateCcw,
   GripVertical,
+  X,
+  Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,9 +24,10 @@ import { StorylinePreview } from '@/components/captions/storyline-preview'
 import { getClient } from '@/lib/supabase/client'
 import { cn, formatBytes } from '@/lib/utils'
 import { useDropzone } from 'react-dropzone'
+import { getPlanById } from '@/lib/crypto/plans'
 import type { Job, Profile } from '@/lib/supabase/types'
 
-type ViewState = 'upload' | 'captions' | 'settings' | 'processing'
+type ViewState = 'upload' | 'captions' | 'settings' | 'processing' | 'multiply'
 
 const ACCEPTED_IMAGE_TYPES = {
   'image/jpeg': ['.jpg', '.jpeg'],
@@ -51,6 +55,10 @@ export default function CaptionsPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [elapsedTime, setElapsedTime] = useState(0)
+
+  // Multiply state
+  const [multiplyCount, setMultiplyCount] = useState(5)
+  const [multiplyJob, setMultiplyJob] = useState<Job | null>(null)
 
   // Caption state
   const [captionSource, setCaptionSource] = useState<'manual' | 'ai'>('manual')
@@ -84,11 +92,15 @@ export default function CaptionsPage() {
 
   // Track elapsed processing time
   useEffect(() => {
-    if (currentJob?.status === 'processing' || currentJob?.status === 'uploading') {
+    const isProcessing =
+      currentJob?.status === 'processing' ||
+      currentJob?.status === 'uploading' ||
+      (multiplyJob?.status === 'processing')
+    if (isProcessing) {
       const interval = setInterval(() => setElapsedTime((p) => p + 1), 1000)
       return () => clearInterval(interval)
     }
-  }, [currentJob?.status])
+  }, [currentJob?.status, multiplyJob?.status])
 
   // Subscribe to job updates via Realtime
   useEffect(() => {
@@ -132,6 +144,31 @@ export default function CaptionsPage() {
       clearInterval(staleCheckInterval)
     }
   }, [currentJob?.id])
+
+  // Subscribe to multiply job updates via Realtime
+  useEffect(() => {
+    if (!multiplyJob) return
+
+    const channel = supabase
+      .channel(`multiply-job-${multiplyJob.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'jobs',
+          filter: `id=eq.${multiplyJob.id}`,
+        },
+        (payload) => {
+          setMultiplyJob(payload.new as Job)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [multiplyJob?.id])
 
   const loadProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -404,6 +441,7 @@ export default function CaptionsPage() {
     setView('upload')
     setPhotos([])
     setCurrentJob(null)
+    setMultiplyJob(null)
     setCaptionSource('manual')
     setAiNiche('')
     setAiStyle('')
@@ -411,9 +449,94 @@ export default function CaptionsPage() {
     setError(null)
   }
 
+  const handleMultiply = () => {
+    setView('multiply')
+    setMultiplyJob(null)
+    setElapsedTime(0)
+  }
+
+  const handleStartMultiply = async () => {
+    if (!currentJob || !profile) return
+
+    setElapsedTime(0)
+    setError(null)
+
+    try {
+      // Create multiply job
+      const createResponse = await fetch('/api/jobs/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filePath: currentJob.source_file_path,
+          fileName: currentJob.source_file_name,
+          fileSize: 0,
+          variantCount: 0,
+          jobType: 'carousel_multiply',
+          parentJobId: currentJob.id,
+          copyCount: Math.min(multiplyCount, maxCopies),
+        }),
+      })
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to create multiply job')
+      }
+
+      const { job } = await createResponse.json()
+      setMultiplyJob(job)
+
+      // Trigger processing
+      const processResponse = await fetch('/api/jobs/process-multiply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: job.id }),
+      })
+
+      if (!processResponse.ok) {
+        const errorData = await processResponse.json().catch(() => ({}))
+        setMultiplyJob({
+          ...job,
+          status: 'failed',
+          error_message: errorData.error || 'Failed to start multiply processing',
+        })
+      }
+    } catch (err) {
+      console.error('Error starting multiply job:', err)
+      setError(err instanceof Error ? err.message : 'Failed to start multiply')
+    }
+  }
+
+  const handleMultiplyDownload = async () => {
+    if (!multiplyJob || !profile) return
+
+    try {
+      if (multiplyJob.output_zip_path) {
+        const { data } = await supabase.storage
+          .from('outputs')
+          .createSignedUrl(multiplyJob.output_zip_path, 3600)
+        if (data?.signedUrl) {
+          const a = document.createElement('a')
+          a.href = data.signedUrl
+          a.download = `${(currentJob?.source_file_name || 'carousel').replace(/\.[^.]+$/, '')}_multiply.zip`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+        }
+      }
+    } catch (err) {
+      console.error('Multiply download failed:', err)
+    }
+  }
+
   const stepIndex = STEPS.findIndex((s) => s.id === view)
   const canProceedToCaptions = photos.length > 0
   const canProceedToSettings = photos.some((p) => p.caption.trim().length > 0)
+
+  // Multiply: calculate max copies based on plan variant limit
+  const slideCount = currentJob ? (currentJob.variant_count || 0) : photos.length
+  const planConfig = profile ? getPlanById(profile.plan) : null
+  const variantLimit = planConfig?.variantLimit ?? 10
+  const maxCopies = slideCount > 0 ? Math.floor(variantLimit / slideCount) : 0
 
   return (
     <div className="p-8">
@@ -472,6 +595,8 @@ export default function CaptionsPage() {
                 ? 'Add Captions'
                 : view === 'settings'
                 ? 'Configure Output'
+                : view === 'multiply'
+                ? 'Multiply Carousel'
                 : 'Processing'}
             </CardTitle>
           </CardHeader>
@@ -744,6 +869,7 @@ export default function CaptionsPage() {
                     job={currentJob}
                     onDownload={handleDownload}
                     onNewJob={handleNewJob}
+                    onMultiply={maxCopies >= 2 ? handleMultiply : undefined}
                     elapsedTime={elapsedTime}
                   />
                 </motion.div>
@@ -776,6 +902,127 @@ export default function CaptionsPage() {
                   <p className="text-sm text-muted-foreground mt-1">
                     Please wait while we upload your images
                   </p>
+                </motion.div>
+              )}
+
+              {/* Step 5: Multiply */}
+              {view === 'multiply' && !multiplyJob && (
+                <motion.div
+                  key="multiply-setup"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="space-y-6"
+                >
+                  <div className="text-center space-y-2">
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4">
+                      <Copy className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold">Multiply Your Carousel</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Create unique copies of your {slideCount}-slide carousel. Each copy has imperceptible visual tweaks for safe multi-account posting.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Number of copies</label>
+                      <span className="text-xs text-muted-foreground">
+                        Max {maxCopies} ({variantLimit} variant limit)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="range"
+                        min={2}
+                        max={Math.max(2, maxCopies)}
+                        value={Math.min(multiplyCount, maxCopies)}
+                        onChange={(e) => setMultiplyCount(Number(e.target.value))}
+                        className="flex-1 accent-primary"
+                      />
+                      <span className="text-2xl font-bold tabular-nums w-12 text-right">
+                        {Math.min(multiplyCount, maxCopies)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Total output: {Math.min(multiplyCount, maxCopies) * slideCount} images ({Math.min(multiplyCount, maxCopies)} sets x {slideCount} slides)
+                    </p>
+                  </div>
+
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-sm text-destructive"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+
+                  <div className="flex items-center justify-between pt-4 border-t border-border/40">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setView('processing')}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back
+                    </Button>
+                    <Button
+                      onClick={handleStartMultiply}
+                      disabled={maxCopies < 2}
+                      className="bg-gradient-to-r from-primary to-primary/80"
+                    >
+                      Start Multiply
+                      <Zap className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {view === 'multiply' && multiplyJob && multiplyJob.status === 'completed' && (
+                <motion.div
+                  key="multiply-done"
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center space-y-6 py-8"
+                >
+                  <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                    <Copy className="w-8 h-8 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">Multiply Complete!</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {multiplyJob.variants_completed} images created in {Math.min(multiplyCount, maxCopies)} unique sets
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-3">
+                    <Button
+                      onClick={handleMultiplyDownload}
+                      className="bg-gradient-to-r from-primary to-primary/80"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download ZIP
+                    </Button>
+                    <Button onClick={handleNewJob} variant="outline">
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      New Storyline
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {view === 'multiply' && multiplyJob && multiplyJob.status !== 'completed' && (
+                <motion.div
+                  key="multiply-processing"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                >
+                  <ProgressTracker
+                    job={multiplyJob}
+                    onDownload={handleMultiplyDownload}
+                    onNewJob={handleNewJob}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

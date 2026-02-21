@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Download, RotateCcw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Download, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getClient } from '@/lib/supabase/client'
 import type { Job, Variant } from '@/lib/supabase/types'
@@ -11,6 +11,7 @@ interface StorylinePreviewProps {
   job: Job
   onDownload: () => void
   onNewJob: () => void
+  onMultiply?: () => void
   elapsedTime: number
 }
 
@@ -22,7 +23,7 @@ interface SlideData {
 
 const SWIPE_THRESHOLD = 50
 
-export function StorylinePreview({ job, onDownload, onNewJob, elapsedTime }: StorylinePreviewProps) {
+export function StorylinePreview({ job, onDownload, onNewJob, onMultiply, elapsedTime }: StorylinePreviewProps) {
   const [slides, setSlides] = useState<SlideData[]>([])
   const [current, setCurrent] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -223,14 +224,7 @@ export function StorylinePreview({ job, onDownload, onNewJob, elapsedTime }: Sto
                   draggable={false}
                 />
 
-                {/* Caption overlay */}
-                {slides[current].caption && (
-                  <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
-                    <p className="text-white text-sm leading-relaxed font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
-                      {slides[current].caption}
-                    </p>
-                  </div>
-                )}
+                {/* Caption is already baked into the processed image — no overlay needed */}
               </motion.div>
             </AnimatePresence>
 
@@ -282,6 +276,12 @@ export function StorylinePreview({ job, onDownload, onNewJob, elapsedTime }: Sto
           <Download className="w-4 h-4 mr-2" />
           Download ZIP
         </Button>
+        {onMultiply && (
+          <Button onClick={onMultiply} variant="outline">
+            <Copy className="w-4 h-4 mr-2" />
+            Multiply
+          </Button>
+        )}
         <Button onClick={onNewJob} variant="outline">
           <RotateCcw className="w-4 h-4 mr-2" />
           New Storyline
