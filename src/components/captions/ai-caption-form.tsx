@@ -16,7 +16,7 @@ interface AiCaptionFormProps {
 const NICHES = [
   'nurse', 'gym', 'mom', 'finance', 'teacher', 'realtor',
   'cosplay', 'gamer', 'travel', 'foodie', 'fashion', 'fitness',
-  'goth', 'news',
+  'goth',
 ]
 
 const STYLES = [
