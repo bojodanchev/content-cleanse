@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CaptionEditor, type CarouselPhoto } from '@/components/captions/caption-editor'
 import { CaptionSettings, CaptionSettingsValues } from '@/components/captions/caption-settings'
 import { ProgressTracker } from '@/components/upload/progress-tracker'
+import { StorylinePreview } from '@/components/captions/storyline-preview'
 import { getClient } from '@/lib/supabase/client'
 import { cn, formatBytes } from '@/lib/utils'
 import { useDropzone } from 'react-dropzone'
@@ -49,6 +50,8 @@ export default function CaptionsPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const [elapsedTime, setElapsedTime] = useState(0)
+
   // Caption state
   const [captionSource, setCaptionSource] = useState<'manual' | 'ai'>('manual')
   const [aiGenerating, setAiGenerating] = useState(false)
@@ -78,6 +81,14 @@ export default function CaptionsPage() {
       photosRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl))
     }
   }, [])
+
+  // Track elapsed processing time
+  useEffect(() => {
+    if (currentJob?.status === 'processing' || currentJob?.status === 'uploading') {
+      const interval = setInterval(() => setElapsedTime((p) => p + 1), 1000)
+      return () => clearInterval(interval)
+    }
+  }, [currentJob?.status])
 
   // Subscribe to job updates via Realtime
   useEffect(() => {
@@ -245,6 +256,7 @@ export default function CaptionsPage() {
 
     setView('processing')
     setUploading(true)
+    setElapsedTime(0)
 
     try {
       // Upload all photos in parallel to Supabase images bucket
@@ -720,8 +732,24 @@ export default function CaptionsPage() {
                 </motion.div>
               )}
 
-              {/* Step 4: Processing */}
-              {view === 'processing' && currentJob && (
+              {/* Step 4: Processing / Preview */}
+              {view === 'processing' && currentJob && currentJob.status === 'completed' && (
+                <motion.div
+                  key="preview"
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, x: 20 }}
+                >
+                  <StorylinePreview
+                    job={currentJob}
+                    onDownload={handleDownload}
+                    onNewJob={handleNewJob}
+                    elapsedTime={elapsedTime}
+                  />
+                </motion.div>
+              )}
+
+              {view === 'processing' && currentJob && currentJob.status !== 'completed' && (
                 <motion.div
                   key="processing"
                   initial={{ opacity: 0, x: -20 }}
