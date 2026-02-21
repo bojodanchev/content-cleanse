@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Search,
@@ -393,7 +393,7 @@ export default function DashboardPage() {
                             preload="metadata"
                             muted
                             className="w-full h-full object-cover"
-                            onMouseEnter={(e) => (e.target as HTMLVideoElement).play()}
+                            onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
                             onMouseLeave={(e) => {
                               const v = e.target as HTMLVideoElement
                               v.pause()

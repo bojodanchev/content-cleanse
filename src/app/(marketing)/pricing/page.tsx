@@ -25,6 +25,7 @@ const comparisonFeatures = [
 export default function PricingPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [upgrading, setUpgrading] = useState<string | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = getClient()
@@ -35,6 +36,7 @@ export default function PricingPage() {
 
   const handleUpgrade = async (planId: string) => {
     setUpgrading(planId)
+    setCheckoutError(null)
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
@@ -46,12 +48,10 @@ export default function PricingPage() {
       if (url) {
         window.location.href = url
       } else {
-        console.error('Checkout error:', error)
-        alert('Failed to create checkout session. Please try again.')
+        setCheckoutError('Failed to create checkout session. Please try again.')
       }
-    } catch (error) {
-      console.error('Checkout error:', error)
-      alert('Failed to create checkout session. Please try again.')
+    } catch {
+      setCheckoutError('Failed to create checkout session. Please try again.')
     }
     setUpgrading(null)
   }
@@ -73,6 +73,14 @@ export default function PricingPage() {
           </p>
         </motion.div>
       </section>
+
+      {checkoutError && (
+        <div className="max-w-md mx-auto px-6 mb-8">
+          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center">
+            {checkoutError}
+          </div>
+        </div>
+      )}
 
       {/* Pricing cards */}
       <section className="max-w-7xl mx-auto px-6 mb-24">

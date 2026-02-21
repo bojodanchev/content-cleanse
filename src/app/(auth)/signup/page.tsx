@@ -258,13 +258,9 @@ export default function SignupPage() {
             className="text-xs text-muted-foreground text-center mt-4"
           >
             By signing up, you agree to our{' '}
-            <Link href="/terms" className="text-primary hover:underline">
-              Terms of Service
-            </Link>{' '}
+            <span className="text-primary">Terms of Service</span>{' '}
             and{' '}
-            <Link href="/privacy" className="text-primary hover:underline">
-              Privacy Policy
-            </Link>
+            <span className="text-primary">Privacy Policy</span>
           </motion.p>
 
           {/* Sign in link */}

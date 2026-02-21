@@ -31,8 +31,14 @@ export async function createCryptoCharge(
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15_000)
+
+  const safeAffiliate = (params.affiliateCode || 'none').replace(/__/g, '-')
+
   const response = await fetch('https://api.nowpayments.io/v1/invoice', {
     method: 'POST',
+    signal: controller.signal,
     headers: {
       'x-api-key': apiKey,
       'Content-Type': 'application/json',
@@ -40,13 +46,15 @@ export async function createCryptoCharge(
     body: JSON.stringify({
       price_amount: params.priceOverride ?? planData.price,
       price_currency: 'usd',
-      order_id: `${userId}__${plan}__${Date.now()}__${params.affiliateCode || 'none'}`,
+      order_id: `${userId}__${plan}__${Date.now()}__${safeAffiliate}`,
       order_description: `Creator Engine ${planData.name} Plan - 30 days`,
       ipn_callback_url: `${appUrl}/api/webhooks/crypto`,
       success_url: `${appUrl}/dashboard?payment=success&plan=${plan}`,
       cancel_url: `${appUrl}/pricing?payment=cancelled`,
     }),
   })
+
+  clearTimeout(timeout)
 
   if (!response.ok) {
     const error = await response.text()

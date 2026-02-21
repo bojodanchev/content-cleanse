@@ -59,10 +59,14 @@ export async function POST(request: Request) {
       }
     }
 
+    if (!user.email) {
+      return NextResponse.json({ error: 'Email required for checkout' }, { status: 400 })
+    }
+
     const charge = await createCryptoCharge({
       plan,
       userId: user.id,
-      userEmail: user.email!,
+      userEmail: user.email,
       priceOverride,
       affiliateCode,
     })

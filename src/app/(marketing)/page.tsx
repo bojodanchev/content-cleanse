@@ -392,7 +392,7 @@ export default function LandingPage() {
                 step: '01',
                 title: 'Upload',
                 description:
-                  'Drag and drop your video. We support all major formats up to 500MB.',
+                  'Drag and drop your video. We support all major formats up to 50MB.',
               },
               {
                 step: '02',

@@ -31,6 +31,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
 
+    if (job.status !== 'pending') {
+      return NextResponse.json({ error: 'Job has already been submitted for processing' }, { status: 409 })
+    }
+
+    if (!job.source_file_path) {
+      return NextResponse.json({ error: 'Job has no source file' }, { status: 400 })
+    }
+
     if (job.job_type !== 'faceswap') {
       return NextResponse.json(
         { error: 'Job is not a faceswap job' },
@@ -79,7 +87,7 @@ export async function POST(request: Request) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('job_type', 'faceswap')
-      .in('status', ['processing', 'completed'])
+      .in('status', ['pending', 'processing', 'completed'])
       .gte('created_at', startOfMonth.toISOString())
 
     if ((faceswapCount ?? 0) >= faceswapLimit) {
@@ -163,6 +171,14 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Process faceswap job error:', error)
+    try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const serviceClient = createServiceClient()
+        await serviceClient.rpc('refund_quota', { p_user_id: user.id })
+      }
+    } catch { /* best-effort */ }
     return NextResponse.json(
       { error: 'Failed to start processing' },
       { status: 500 }

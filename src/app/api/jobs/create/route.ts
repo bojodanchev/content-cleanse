@@ -17,6 +17,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'File path and name required' }, { status: 400 })
     }
 
+    // Validate file path belongs to the authenticated user (prevent accessing other users' files)
+    if (jobType !== 'carousel_multiply' && !filePath.startsWith(`${user.id}/`)) {
+      return NextResponse.json({ error: 'Invalid file path' }, { status: 403 })
+    }
+
     // Enforce 50MB file size limit (Supabase free tier)
     const MAX_FILE_SIZE = 50 * 1024 * 1024
     if (fileSize && fileSize > MAX_FILE_SIZE) {

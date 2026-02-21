@@ -33,6 +33,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
 
+    if (job.status !== 'pending') {
+      return NextResponse.json({ error: 'Job has already been submitted for processing' }, { status: 409 })
+    }
+
+    if (!job.source_file_path) {
+      return NextResponse.json({ error: 'Job has no source file' }, { status: 400 })
+    }
+
     const { data: profile } = await serviceClient
       .from('profiles')
       .select('*')

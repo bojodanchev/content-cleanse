@@ -91,6 +91,13 @@ export async function POST(request: Request) {
       )
     }
 
+    if (niche.length > 100) {
+      return NextResponse.json(
+        { error: 'Niche must be under 100 characters' },
+        { status: 400 }
+      )
+    }
+
     if (!count || typeof count !== 'number' || count < 1) {
       return NextResponse.json(
         { error: 'Count must be at least 1' },

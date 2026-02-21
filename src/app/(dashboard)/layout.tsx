@@ -64,7 +64,7 @@ export default async function DashboardLayout({
   }
 
   const quotaPercentage = profile
-    ? ((profile.quota_used || 0) / (profile.monthly_quota || 5)) * 100
+    ? Math.min(((profile.quota_used || 0) / (profile.monthly_quota || 5)) * 100, 100)
     : 0
 
   const initials =

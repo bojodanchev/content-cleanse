@@ -40,8 +40,17 @@ export async function POST(request: Request) {
 
     const { name, filePath } = await request.json()
 
-    if (!name || !filePath) {
-      return NextResponse.json({ error: 'Name and file path required' }, { status: 400 })
+    if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 100) {
+      return NextResponse.json({ error: 'Name must be 1-100 characters' }, { status: 400 })
+    }
+
+    if (!filePath) {
+      return NextResponse.json({ error: 'File path required' }, { status: 400 })
+    }
+
+    // Validate file path belongs to the authenticated user
+    if (!filePath.startsWith(`${user.id}/`)) {
+      return NextResponse.json({ error: 'Invalid file path' }, { status: 403 })
     }
 
     const serviceClient = createServiceClient()

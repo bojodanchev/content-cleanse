@@ -8,6 +8,14 @@
 
 import type { CaptionSettings } from '@/lib/supabase/types'
 
+const MODAL_TIMEOUT_MS = 30_000
+
+function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), MODAL_TIMEOUT_MS)
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout))
+}
+
 interface ModalJobRequest {
   jobId: string
   sourcePath: string
@@ -81,7 +89,7 @@ export async function triggerVideoProcessing(
   }
 
   try {
-    const response = await fetch(endpointUrl, {
+    const response = await fetchWithTimeout(endpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -146,7 +154,7 @@ export async function triggerCaptionProcessing(
   )
 
   try {
-    const response = await fetch(captionEndpointUrl, {
+    const response = await fetchWithTimeout(captionEndpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -214,7 +222,7 @@ export async function triggerFaceswapProcessing(
   )
 
   try {
-    const response = await fetch(faceswapEndpointUrl, {
+    const response = await fetchWithTimeout(faceswapEndpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -280,7 +288,7 @@ export async function triggerImageProcessing(
   )
 
   try {
-    const response = await fetch(imageEndpointUrl, {
+    const response = await fetchWithTimeout(imageEndpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -343,7 +351,7 @@ export async function triggerMultiplyProcessing(
   )
 
   try {
-    const response = await fetch(multiplyEndpointUrl, {
+    const response = await fetchWithTimeout(multiplyEndpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

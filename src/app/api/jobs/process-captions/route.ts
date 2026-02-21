@@ -35,6 +35,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
 
+    if (job.status !== 'pending') {
+      return NextResponse.json({ error: 'Job has already been submitted for processing' }, { status: 409 })
+    }
+
+    if (!job.source_file_path) {
+      return NextResponse.json({ error: 'Job has no source file' }, { status: 400 })
+    }
+
     // Verify this is a photo_captions job
     if (job.job_type !== 'photo_captions') {
       return NextResponse.json(
@@ -153,6 +161,14 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Process captions job error:', error)
+    try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const serviceClient = createServiceClient()
+        await serviceClient.rpc('refund_quota', { p_user_id: user.id })
+      }
+    } catch { /* best-effort */ }
     return NextResponse.json(
       { error: 'Failed to start processing' },
       { status: 500 }
