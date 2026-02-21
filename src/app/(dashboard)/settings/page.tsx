@@ -394,7 +394,9 @@ export default function SettingsPage() {
                     <p className="text-muted-foreground">
                       {currentPlan.price === 0
                         ? 'Free forever'
-                        : `$${currentPlan.price}/month • Crypto payments`}
+                        : currentPlan.originalPrice
+                          ? <><span className="line-through text-muted-foreground/60">${currentPlan.originalPrice}</span>{' '}<span className="text-red-400 font-medium">${currentPlan.price}/month</span> • Crypto payments</>
+                          : `$${currentPlan.price}/month • Crypto payments`}
                     </p>
                     {profile?.plan_expires_at && profile.plan !== 'free' && !isExpired && (
                       <p className="text-xs text-muted-foreground mt-1">
@@ -443,9 +445,14 @@ export default function SettingsPage() {
                     >
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-semibold">{plan.name}</h4>
-                        <span className="text-lg font-bold">
-                          ${plan.price}/mo
-                        </span>
+                        <div className="text-right">
+                          {plan.originalPrice && (
+                            <span className="text-sm text-muted-foreground line-through mr-2">${plan.originalPrice}</span>
+                          )}
+                          <span className="text-lg font-bold">
+                            ${plan.price}/mo
+                          </span>
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">
                         {plan.description}

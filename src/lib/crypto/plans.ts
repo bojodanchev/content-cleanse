@@ -3,6 +3,7 @@ export interface Plan {
   name: string
   description: string
   price: number
+  originalPrice?: number
   features: string[]
   quota: number
   variantLimit: number
@@ -33,7 +34,8 @@ export const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     description: 'For serious content creators',
-    price: 99,
+    price: 89,
+    originalPrice: 119,
     quota: 100,
     variantLimit: 100,
     faceswapLimit: 50,
@@ -52,7 +54,8 @@ export const PLANS: Plan[] = [
     id: 'agency',
     name: 'Agency',
     description: 'For teams and agencies',
-    price: 249,
+    price: 169,
+    originalPrice: 249,
     quota: 10000,
     variantLimit: 100,
     faceswapLimit: 10000,

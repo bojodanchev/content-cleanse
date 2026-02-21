@@ -1,126 +1,78 @@
-# Content Cleanse - Video Uniquification Platform
+# Creator Engine
 
-## Project Overview
+SaaS platform for content uniquification — video variants, photo captions, face swap, carousel multiply. (Next.js 16 + Supabase + Modal.com + Vercel)
 
-Content Cleanse is a SaaS platform that transforms single videos into multiple unique variants using FFmpeg transformations and AI watermark removal. It targets OFM (OnlyFans Management) agencies who need to reupload content across multiple accounts without platform duplicate detection.
+## Quick Start
+```bash
+npm install
+npm run dev                                          # Frontend
+modal deploy src/workers/process-video/main.py       # Modal worker
+```
 
-## Tech Stack
-
-- **Frontend**: Next.js 16 (App Router) + Tailwind CSS 4 + shadcn/ui
-- **Backend**: Supabase (Postgres, Auth, Storage, Realtime)
-- **Processing**: Modal.com (serverless FFmpeg containers)
-- **Payments**: Stripe (subscriptions)
-- **AI**: Replicate API (watermark inpainting)
-- **Hosting**: Vercel
+## Key Commands
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Dev server |
+| `npm run build` | Production build |
+| `modal deploy src/workers/process-video/main.py` | Deploy all Modal endpoints |
+| `git push origin main` | Deploy frontend (Vercel auto-deploy) |
 
 ## Project Structure
-
 ```
-src/
-├── app/
-│   ├── (marketing)/     # Public landing pages
-│   ├── (auth)/          # Login/signup
-│   ├── (dashboard)/     # Protected app (dashboard, library, settings)
-│   └── api/             # API routes (webhooks, jobs, auth)
-├── components/
-│   ├── ui/              # shadcn components
-│   ├── upload/          # Dropzone, settings, progress
-│   ├── dashboard/       # Dashboard-specific components
-│   └── marketing/       # Landing page components
-├── lib/
-│   ├── supabase/        # Database client & types
-│   ├── stripe/          # Payment integration
-│   ├── ffmpeg/          # FFmpeg command builders
-│   └── modal/           # Modal.com API client
-└── workers/
-    └── process-video/   # Modal Python worker
+src/app/(dashboard)/     # captions/, faceswap/, dashboard/, library/, settings/
+src/app/api/jobs/        # create, process-captions, process-multiply, process-faceswap
+src/lib/supabase/        # client, server, types.ts (all DB types)
+src/lib/crypto/plans.ts  # Plan config (quota, variantLimit, faceswapLimit)
+src/lib/modal/client.ts  # Modal API client (trigger*Processing functions)
+src/workers/process-video/main.py  # ALL Modal processing functions + endpoints
 ```
 
-## Key Files
+## Architecture
+> Deep dive: [docs/architecture.md](docs/architecture.md)
 
-- `src/lib/supabase/types.ts` - Database TypeScript types
-- `src/lib/stripe/plans.ts` - Pricing plans configuration
-- `src/workers/process-video/main.py` - FFmpeg processing worker
-- `supabase/migrations/001_initial_schema.sql` - Database schema
+- **Job lifecycle**: Create (API) → Trigger (API→Modal) → Progress (Realtime) → Download ZIP
+- **Quota**: Atomic `try_consume_quota` RPC + `refund_quota` on failure
+- **Plan enforcement**: Frontend limits → create route caps → process route re-validates
+- **Payments**: NOWPayments crypto-only, 30-day access, auto-downgrade on expiry
+- **Job types**: `video`, `photo_captions`, `faceswap`, `photo_clean`, `carousel_multiply`
+
+## Environment & Services
+> Details: [docs/environment.md](docs/environment.md) | [docs/mcp-config.md](docs/mcp-config.md)
+
+- Supabase project: `vljbyrayyiwpymbuzedb`
+- Production: `https://creatorengine.app` (Vercel, custom domain)
+- `NEXT_PUBLIC_` vars baked at build time — redeploy after changes
 
 ## Design System
+Dark cyberpunk theme. Primary: electric magenta. Accent: cyan. Background: deep black.
 
-**Theme**: Dark cyberpunk with electric magenta (#FF00FF variant) and cyan (#00FFFF variant) accents
+## Rules & Style
+- All processing goes through Modal.com — never process in API routes
+- Modal worker receives Supabase creds via request body (no Modal secrets)
+- Storage buckets: `videos`, `outputs`, `watermarks`, `images`, `faces`
+- New job types need: types.ts union + create route branch + process route + Modal function + Modal endpoint
 
-**CSS Variables** (in globals.css):
-- `--primary`: Electric Magenta (318 100% 60%)
-- `--accent`: Electric Cyan (185 100% 50%)
-- `--background`: Deep black (0 0% 4%)
+## Gotchas (Top 5)
+> Full list: [docs/gotchas.md](docs/gotchas.md)
 
-**Custom Utilities**:
-- `.glow-magenta` / `.glow-cyan` - Box shadow glows
-- `.gradient-text` - Gradient text effect
-- `.glass` - Glassmorphism
-- `.grid-pattern` - Background grid
-- `.noise-overlay` - Subtle noise texture
+- Realtime must be enabled per-table: `ALTER PUBLICATION supabase_realtime ADD TABLE tablename;`
+- Modal image ordering: `add_local_*` AFTER `run_commands`
+- `@modal.fastapi_endpoint` not `@modal.web_endpoint`
+- Vercel env vars: use `echo -n` to avoid trailing newline corruption
+- `NEXT_PUBLIC_` vars require redeploy — they're baked at build time
 
-## Database Schema
+## DB Migrations
+013 migrations applied (001–013). Apply via Supabase MCP `apply_migration`.
 
-- `profiles` - User profiles with plan, quota, Stripe IDs
-- `jobs` - Processing jobs with status, settings, progress
-- `variants` - Individual video variants with transformations
-- `watermarks` - User-uploaded watermark images
-- `events` - Analytics events
-- `api_usage` - API usage tracking (Agency plan)
+## Recent Decisions
+> History: [docs/decisions/](docs/decisions/)
 
-## Environment Variables
+- [2026-02-21] Carousel multiply as separate job type with parent_job_id link
 
-Required in `.env.local`:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `MODAL_TOKEN_ID`
-- `MODAL_TOKEN_SECRET`
-- `REPLICATE_API_TOKEN`
+## Active Context
+Rebranded Content Cleanse → Creator Engine (2026-02-21). Production hardening: security fixes, fetch timeouts, job status guards. Modal needs redeployment for new app name.
 
-## Commands
+## Discovery Log
+> Full log: [docs/discovery-log.md](docs/discovery-log.md)
 
-```bash
-# Development
-npm run dev
-
-# Build
-npm run build
-
-# Run Supabase locally
-supabase start
-
-# Deploy Modal worker
-modal deploy src/workers/process-video/main.py
-
-# Run Modal worker locally
-modal run src/workers/process-video/main.py
-```
-
-## Pricing Plans
-
-| Plan | Price | Videos/mo | Variants | Watermark Removal |
-|------|-------|-----------|----------|-------------------|
-| Free | $0 | 5 | 10 | No |
-| Pro | $99 | 100 | 100 | Yes |
-| Agency | $249 | Unlimited | 100 | Yes + API |
-
-## FFmpeg Transformations
-
-Each variant gets randomized:
-- Brightness: ±3%
-- Saturation: ±3%
-- Hue: ±5°
-- Crop: 1-3px from edges
-- Speed: 0.98x-1.02x
-- Metadata: Completely stripped
-
-## Notes
-
-- Job progress updates via Supabase Realtime subscriptions
-- Files stored in Supabase Storage buckets: `videos`, `outputs`, `watermarks`
-- Modal.com worker has 10-minute timeout, 4GB RAM
-- Stripe webhooks handle subscription lifecycle
+- [2026-02-21] Rebrand to Creator Engine + production hardening (19 security/quality fixes)

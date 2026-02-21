@@ -480,9 +480,24 @@ export default function LandingPage() {
                 </div>
 
                 <div className="mb-6">
-                  <span className="text-4xl font-bold">${plan.price}</span>
-                  {plan.price > 0 && (
-                    <span className="text-muted-foreground">/month</span>
+                  {plan.originalPrice ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm text-muted-foreground line-through">${plan.originalPrice}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wide">
+                          Sale
+                        </span>
+                      </div>
+                      <span className="text-4xl font-bold">${plan.price}</span>
+                      <span className="text-muted-foreground">/month</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-bold">${plan.price}</span>
+                      {plan.price > 0 && (
+                        <span className="text-muted-foreground">/month</span>
+                      )}
+                    </>
                   )}
                 </div>
 

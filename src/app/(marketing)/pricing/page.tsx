@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Check, HelpCircle, Loader2 } from 'lucide-react'
+import { Check, HelpCircle, Loader2, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PLANS } from '@/lib/crypto/plans'
 import { getClient } from '@/lib/supabase/client'
@@ -58,6 +58,24 @@ export default function PricingPage() {
 
   return (
     <div className="pt-24 pb-16">
+      {/* Sale Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-6 mt-4 mb-0"
+      >
+        <div className="max-w-3xl mx-auto rounded-xl bg-gradient-to-r from-red-500/10 via-orange-500/10 to-red-500/10 border border-red-500/20 p-4 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <Flame className="w-5 h-5 text-red-400" />
+            <span className="font-bold text-red-400 uppercase tracking-wide text-sm">Limited Time Sale</span>
+            <Flame className="w-5 h-5 text-red-400" />
+          </div>
+          <p className="text-muted-foreground text-sm mt-1">
+            Save up to $80/month on Pro and Agency plans
+          </p>
+        </div>
+      </motion.div>
+
       {/* Hero */}
       <section className="py-16 text-center">
         <motion.div
@@ -111,9 +129,24 @@ export default function PricingPage() {
               </div>
 
               <div className="mb-8">
-                <span className="text-5xl font-bold">${plan.price}</span>
-                {plan.price > 0 && (
-                  <span className="text-muted-foreground text-lg">/month</span>
+                {plan.originalPrice ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg text-muted-foreground line-through">${plan.originalPrice}</span>
+                      <span className="px-2 py-0.5 rounded-md bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wide">
+                        Save ${plan.originalPrice - plan.price}
+                      </span>
+                    </div>
+                    <span className="text-5xl font-bold">${plan.price}</span>
+                    <span className="text-muted-foreground text-lg">/month</span>
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-5xl font-bold">${plan.price}</span>
+                    {plan.price > 0 && (
+                      <span className="text-muted-foreground text-lg">/month</span>
+                    )}
+                  </>
                 )}
               </div>
 
