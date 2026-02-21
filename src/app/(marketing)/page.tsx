@@ -109,98 +109,102 @@ export default function LandingPage() {
             transition={{ delay: 0.6, duration: 0.8 }}
             className="mt-16 relative"
           >
-            <div className="aspect-video max-w-5xl mx-auto rounded-2xl overflow-hidden gradient-border">
+            <div className="aspect-[16/10] max-w-5xl mx-auto rounded-2xl overflow-hidden gradient-border">
               <div className="absolute inset-[1px] rounded-2xl bg-card overflow-hidden">
                 {/* Mockup of the dashboard */}
-                <div className="w-full h-full bg-gradient-to-br from-card to-secondary/30 p-6">
+                <div className="w-full h-full bg-gradient-to-br from-card to-secondary/30 p-4 md:p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-3 h-3 rounded-full bg-destructive/50" />
                     <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
                     <div className="w-3 h-3 rounded-full bg-green-500/50" />
+                    <div className="ml-2 flex-1 max-w-xs">
+                      <div className="h-6 rounded-full bg-secondary/60 border border-border/30 flex items-center px-3">
+                        <span className="text-[10px] text-muted-foreground truncate">creatorengine.app/dashboard</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 h-[calc(100%-40px)]">
-                    {/* Left panel - upload */}
-                    <div className="col-span-1 rounded-xl border border-border/50 bg-secondary/30 p-4 flex flex-col items-center justify-center">
-                      <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
-                        <Download className="w-8 h-8 text-primary" />
+                  <div className="grid grid-cols-3 gap-4 h-[calc(100%-48px)]">
+                    {/* Left panel - uploaded state */}
+                    <div className="col-span-1 rounded-xl border border-border/50 bg-secondary/30 p-4 flex flex-col">
+                      <div className="relative aspect-video rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 via-accent/10 to-secondary/40 mb-3 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20">
+                          <Play className="w-5 h-5 text-white fill-white" />
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <p className="font-medium mb-1">Drop your video</p>
-                        <p className="text-sm text-muted-foreground">
-                          or click to browse
-                        </p>
+                      <p className="font-medium text-sm truncate">summer_promo.mp4</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">1080p · 2:34 · 48MB</p>
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-green-500" />
+                        </div>
+                        <span className="text-xs text-green-500 font-medium">Uploaded</span>
                       </div>
                     </div>
 
                     {/* Right panel - variants */}
                     <div className="col-span-2 rounded-xl border border-border/50 bg-secondary/30 p-4">
-                      <div className="grid grid-cols-4 gap-2 h-full">
-                        {Array.from({ length: 8 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-border/30 flex items-center justify-center"
-                          >
-                            <span className="text-xs text-muted-foreground">
-                              v{i + 1}
-                            </span>
-                          </div>
-                        ))}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span className="text-xs font-medium">8 variants · Complete</span>
+                        </div>
                       </div>
+                      <motion.div
+                        className="grid grid-cols-4 gap-2 h-[calc(100%-32px)]"
+                        variants={{
+                          show: { transition: { staggerChildren: 0.08 } },
+                        }}
+                        initial="hidden"
+                        animate="show"
+                      >
+                        {Array.from({ length: 8 }).map((_, i) => {
+                          const hue = (318 + i * 30) % 360
+                          return (
+                            <motion.div
+                              key={i}
+                              variants={{
+                                hidden: { opacity: 0, scale: 0.9 },
+                                show: { opacity: 1, scale: 1 },
+                              }}
+                              className="rounded-lg border border-border/30 flex items-center justify-center relative overflow-hidden"
+                              style={{
+                                background: `linear-gradient(135deg, hsla(${hue}, 60%, 40%, 0.15), hsla(${(hue + 60) % 360}, 60%, 40%, 0.1))`,
+                              }}
+                            >
+                              <span className="text-[10px] text-muted-foreground">v{i + 1}</span>
+                              <div className="absolute top-1 right-1">
+                                <Check className="w-2.5 h-2.5 text-green-500/70" />
+                              </div>
+                            </motion.div>
+                          )
+                        })}
+                      </motion.div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Floating stats */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 1 }}
-              className="absolute -left-4 top-1/2 -translate-y-1/2 hidden lg:block"
-            >
-              <div className="glass rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">2.3s</p>
-                    <p className="text-xs text-muted-foreground">Avg. process time</p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 1.2 }}
-              className="absolute -right-4 top-1/3 hidden lg:block"
-            >
-              <div className="glass rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-accent/20 flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-accent" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">99.9%</p>
-                    <p className="text-xs text-muted-foreground">Detection bypass</p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
           </motion.div>
 
-          {/* Scroll indicator */}
+          {/* Inline stats strip */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.5 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.2, duration: 0.5 }}
+            className="mt-8 flex flex-wrap items-center justify-center gap-6 md:gap-8"
           >
-            <ChevronDown className="w-6 h-6 text-muted-foreground animate-bounce" />
+            {[
+              { icon: Zap, label: '2.3s avg processing', color: 'text-primary' },
+              { icon: Shield, label: '99.9% detection bypass', color: 'text-accent' },
+              { icon: Layers, label: 'Up to 100 variants', color: 'text-primary' },
+            ].map((stat, i) => (
+              <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                <span>{stat.label}</span>
+              </div>
+            ))}
           </motion.div>
         </div>
       </section>
@@ -208,6 +212,9 @@ export default function LandingPage() {
       {/* Social Proof */}
       <section className="py-16 border-y border-border/40">
         <div className="max-w-7xl mx-auto px-6">
+          <p className="text-center text-sm text-muted-foreground mb-8">
+            Trusted by 500+ content agencies worldwide
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
               { value: '10,000+', label: 'Videos processed' },
