@@ -4,79 +4,45 @@ import OpenAI from 'openai'
 
 const STYLES: Record<string, string> = {
   mixed:
-    'Use ALL of the viral caption patterns below, varying randomly across captions.',
+    'Vary your storytelling techniques across slides — use confessions, reveals, cliffhangers, and emotional turns.',
   drama:
-    'Focus on relationship drama, shocking confessions, and first-person scandalous stories.',
-  listicle: "Focus on 'top N' lists, rankings, and numbered hooks.",
+    'Tell an emotional, dramatic story — relationship conflicts, shocking confessions, betrayals, or life-changing moments. Build emotional intensity slide by slide.',
+  listicle:
+    'Structure as a progressive reveal — "3 things that happened..." or "what nobody tells you about being a {niche}..." where each slide reveals the next point, building to the most shocking.',
   hottake:
-    'Focus on controversial, relatable, and divisive opinions and hot takes.',
+    'Build a controversial take across slides — start with a spicy opinion, back it up with personal experience, and end with a take so hot it forces comments.',
   cliffhanger:
-    "Focus on incomplete sentences, curiosity gaps, and '...' endings that make people need to see more.",
+    'Maximize suspense — every slide must end mid-thought or with an incomplete reveal. Use "..." liberally. The viewer must swipe to find out what happens next.',
 }
 
-const SYSTEM_PROMPT = `You are a viral social media caption writer for TikTok, Instagram Reels, and YouTube Shorts. \
-You write captions that get 100K-1M+ views.
+const SYSTEM_PROMPT = `You are a viral social media storyline writer for TikTok carousels, Instagram Stories, and multi-slide posts.
 
-NICHE: {niche}
-STYLE FOCUS: {style_instruction}
+Your job: Create a {count}-part STORYLINE for a {niche} creator. Each part is one slide caption.
 
-VIRAL CAPTION PATTERNS you must use:
+STORY ARC STRUCTURE:
+- Slide 1: Irresistible hook that makes viewers swipe to the next slide
+- Middle slides: Build tension, reveal details, or escalate the situation
+- Final slide: Deliver the payoff, plot twist, or call-to-action
 
-1. CURIOSITY GAPS — mysterious, vague statements that force someone to watch.
-   Examples: "no one understands what happens when no one is watching..."
-   "you won't believe what she said after this..."
-
-2. RELATIONSHIP DRAMA — shocking boyfriend/girlfriend/ex stories.
-   Examples: "my boyfriend of 3 years broke up with me after 2 doctors..."
-   "i caught my man texting his ex and what she sent back..."
-
-3. CLIFFHANGERS WITH "..." — sentences that cut off at the most interesting part.
-   Examples: "if your man ever says these..."
-   "top 5 things that squirt..."
-
-4. TOP N LISTICLES — ranked lists that promise value.
-   Examples: "top 5 waterparks to take your friends to"
-   "3 things every girl should know before 25"
-
-5. PROFESSION/IDENTITY HOOKS — job or identity reveal that creates shock.
-   Examples: "men refuse to eat my food when they find out i work as a..."
-   "people treat me different when they find out im actually a..."
-
-6. RELATABLE HOT TAKES — opinions everyone secretly agrees with.
-   Examples: "marriage is scary bcus what if he doesn't like the floor plan?"
-   "being an adult is just googling how to do stuff"
-
-7. PROVOCATIVE CONFESSIONS — first-person shocking admissions.
-   Examples: "i haven't told anyone this but..."
-   "ngl i did something crazy last night..."
-
-8. BACKWARDS TEXT PUZZLES — scrambled or reversed text for engagement bait.
-   Examples: "if you can read this backwards you're built different"
-
-9. "ME SINGLE VS..." — comparison hooks showing contrasts.
-   Examples: "me single vs me in a relationship"
-   "what i ordered vs what i got"
-
-10. INCOMPLETE SENTENCES — sentences missing a key word that makes people watch.
-    Examples: "she really just _____ in front of everyone"
-    "i can't believe he actually..."
+NICHE PERSONA: {niche}
+STYLE: {style_instruction}
 
 RULES — follow these strictly:
+- The captions form ONE continuous story arc, not independent posts
+- Each caption is 1-3 sentences (they go ON photos as text overlays)
 - UNDER 20 words per caption, max 30 absolute limit
 - Casual lowercase tone — use abbreviations like "bcus", "tbh", "ngl", "imo", "rn", "lowkey"
 - Sparse emoji — 0 to 2 max per caption, most captions should have zero
 - Must sound like a REAL PERSON typed it, NOT like AI or a brand
-- Each caption must be DIFFERENT — vary the pattern used
-- Written in first person
-- Use "..." for cliffhangers and suspense
-- Adapt every caption to the niche: {niche}
+- Written in first person as the {niche} persona
+- Every slide must make the viewer NEED to see the next one
+- Make it feel authentic and relatable, not scripted
 - No hashtags, no @mentions, no links
 - No quotation marks around the captions
 
 OUTPUT FORMAT:
 Return ONLY the captions, one per line. No numbering, no bullets, no extra text.`
 
-const BATCH_SIZE = 50
 const MAX_CAPTIONS = 50
 const VALID_STYLES = Object.keys(STYLES)
 
@@ -168,63 +134,52 @@ export async function POST(request: Request) {
 
     const client = new OpenAI({ apiKey })
     const styleInstruction = STYLES[style]
-    const systemMsg = SYSTEM_PROMPT.replace(/\{niche\}/g, niche.trim()).replace(
-      '{style_instruction}',
-      styleInstruction
-    )
+    const systemMsg = SYSTEM_PROMPT
+      .replace(/\{niche\}/g, niche.trim())
+      .replace('{style_instruction}', styleInstruction)
+      .replace(/\{count\}/g, String(count))
 
-    const allCaptions: string[] = []
-    const batches = Math.ceil(count / BATCH_SIZE)
+    // Storyline captions must be generated in a single request to maintain narrative
+    // continuity. MAX_PHOTOS is 20 which is well under BATCH_SIZE (50), so all
+    // captions will always fit in one batch.
+    const userMsg = `Write a ${count}-slide storyline for a ${niche.trim()} creator. Each line is one slide's caption. The story must flow from hook to payoff.`
 
-    for (let batchIdx = 0; batchIdx < batches; batchIdx++) {
-      const remaining = count - allCaptions.length
-      const batchCount = Math.min(BATCH_SIZE, remaining)
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemMsg },
+    ]
 
-      let userMsg = `Generate exactly ${batchCount} viral captions for the ${niche.trim()} niche. One per line.`
-      if (batchIdx > 0) {
-        userMsg += ' Make them completely different from previous batches.'
-      }
-
-      // Build messages array
-      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'system', content: systemMsg },
-      ]
-
-      // If image is provided, use vision mode for image-aware captions
-      if (imageBase64 && batchIdx === 0) {
-        messages.push({
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `Look at this photo and ${userMsg} Make the captions relevant to what you see in the image.`,
-            },
-            {
-              type: 'image_url',
-              image_url: { url: imageBase64 },
-            },
-          ],
-        })
-      } else {
-        messages.push({ role: 'user', content: userMsg })
-      }
-
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages,
-        temperature: 1.0,
-        max_tokens: 2048,
+    // If image is provided, use vision mode for image-aware storyline
+    if (imageBase64) {
+      messages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `Look at this photo of a ${niche.trim()} creator. Write a ${count}-slide storyline inspired by what you see. Each line is one slide's caption. The story must flow from hook to payoff.`,
+          },
+          {
+            type: 'image_url',
+            image_url: { url: imageBase64 },
+          },
+        ],
       })
-
-      const text = response.choices[0]?.message?.content || ''
-      const lines = text
-        .trim()
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-
-      allCaptions.push(...lines)
+    } else {
+      messages.push({ role: 'user', content: userMsg })
     }
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      temperature: 1.0,
+      max_tokens: 2048,
+    })
+
+    const text = response.choices[0]?.message?.content || ''
+    const allCaptions = text
+      .trim()
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
 
     // Trim to exact count requested
     const captions = allCaptions.slice(0, count)
