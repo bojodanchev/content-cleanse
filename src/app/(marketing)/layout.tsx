@@ -17,14 +17,14 @@ export default function MarketingLayout({
           <Link href="/" className="flex items-center gap-2.5">
             <Image
               src="/logo-icon.png"
-              alt="Content Cleanse"
+              alt="Creator Engine"
               width={36}
               height={36}
               className="w-9 h-9"
               priority
             />
             <span className="font-semibold text-lg tracking-tight">
-              Content<span className="text-primary">Cleanse</span>
+              Creator<span className="text-primary">Engine</span>
             </span>
           </Link>
 
@@ -83,13 +83,13 @@ export default function MarketingLayout({
               <Link href="/" className="flex items-center gap-2 mb-4">
                 <Image
                   src="/logo-icon.png"
-                  alt="Content Cleanse"
+                  alt="Creator Engine"
                   width={32}
                   height={32}
                   className="w-8 h-8"
                 />
                 <span className="font-semibold tracking-tight">
-                  Content<span className="text-primary">Cleanse</span>
+                  Creator<span className="text-primary">Engine</span>
                 </span>
               </Link>
               <p className="text-sm text-muted-foreground">
@@ -161,7 +161,7 @@ export default function MarketingLayout({
 
           <div className="mt-12 pt-8 border-t border-border/40 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Content Cleanse. All rights reserved.
+              © {new Date().getFullYear()} Creator Engine. All rights reserved.
             </p>
             <div className="flex items-center gap-4">
               <a

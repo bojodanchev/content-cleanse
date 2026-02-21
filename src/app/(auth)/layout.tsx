@@ -13,13 +13,13 @@ export default function AuthLayout({
         <Link href="/" className="flex items-center gap-2.5 w-fit">
           <Image
             src="/logo-icon.png"
-            alt="Content Cleanse"
+            alt="Creator Engine"
             width={36}
             height={36}
             className="w-9 h-9"
           />
           <span className="font-semibold text-lg tracking-tight">
-            Content<span className="text-primary">Cleanse</span>
+            Creator<span className="text-primary">Engine</span>
           </span>
         </Link>
       </header>

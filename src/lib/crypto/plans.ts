@@ -16,7 +16,7 @@ export const PLANS: Plan[] = [
   {
     id: 'free',
     name: 'Free',
-    description: 'Perfect for trying out Content Cleanse',
+    description: 'Perfect for trying out Creator Engine',
     price: 0,
     quota: 5,
     variantLimit: 10,

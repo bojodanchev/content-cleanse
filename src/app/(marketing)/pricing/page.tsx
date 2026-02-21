@@ -281,7 +281,7 @@ export default function PricingPage() {
             },
             {
               q: 'Do you offer discounts for non-profits or students?',
-              a: 'Yes! Contact us at support@contentcleanse.com with proof of status for a 50% discount on any plan.',
+              a: 'Yes! Contact us at support@creatorengine.app with proof of status for a 50% discount on any plan.',
             },
           ].map((item, i) => (
             <motion.div

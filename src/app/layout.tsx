@@ -13,29 +13,29 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Content Cleanse - Video Uniquification Platform',
+  title: 'Creator Engine - Video Uniquification Platform',
   description:
     'Transform your videos into unique variants that bypass duplicate content detection. AI-powered watermark removal and batch processing.',
   keywords: [
     'video uniquification',
-    'content cleanse',
+    'creator engine',
     'video variants',
     'watermark removal',
     'OFM',
     'content management',
   ],
-  authors: [{ name: 'Content Cleanse' }],
+  authors: [{ name: 'Creator Engine' }],
   openGraph: {
-    title: 'Content Cleanse - Video Uniquification Platform',
+    title: 'Creator Engine - Video Uniquification Platform',
     description:
       'Turn one video into 100 unique variants. Stop getting flagged for duplicate content.',
     type: 'website',
     locale: 'en_US',
-    siteName: 'Content Cleanse',
+    siteName: 'Creator Engine',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Content Cleanse',
+    title: 'Creator Engine',
     description: 'Turn one video into 100 unique variants.',
   },
   robots: {

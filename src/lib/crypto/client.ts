@@ -41,7 +41,7 @@ export async function createCryptoCharge(
       price_amount: params.priceOverride ?? planData.price,
       price_currency: 'usd',
       order_id: `${userId}__${plan}__${Date.now()}__${params.affiliateCode || 'none'}`,
-      order_description: `Content Cleanse ${planData.name} Plan - 30 days`,
+      order_description: `Creator Engine ${planData.name} Plan - 30 days`,
       ipn_callback_url: `${appUrl}/api/webhooks/crypto`,
       success_url: `${appUrl}/dashboard?payment=success&plan=${plan}`,
       cancel_url: `${appUrl}/pricing?payment=cancelled`,

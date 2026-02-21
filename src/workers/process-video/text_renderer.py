@@ -1,6 +1,6 @@
 """
 Text rendering for photo captions.
-Ported from slideshow captions project, adapted for Content Cleanse Modal worker.
+Ported from slideshow captions project, adapted for Creator Engine Modal worker.
 
 Renders caption text on images with TikTok-style formatting:
 - Anton bold font (bundled TTF)

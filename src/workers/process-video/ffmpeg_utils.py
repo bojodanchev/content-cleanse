@@ -1,5 +1,5 @@
 """
-FFmpeg Utility Functions for Content Cleanse
+FFmpeg Utility Functions for Creator Engine
 
 Advanced transformation functions including:
 - Watermark detection and removal

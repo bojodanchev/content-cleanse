@@ -530,7 +530,7 @@ export default function LandingPage() {
           <div className="space-y-4">
             {[
               {
-                q: 'How does Content Cleanse make videos unique?',
+                q: 'How does Creator Engine make videos unique?',
                 a: 'We apply micro-adjustments to brightness, saturation, hue, audio pitch, and crop that are imperceptible to humans but completely change the digital fingerprint of your video.',
               },
               {
@@ -583,10 +583,10 @@ export default function LandingPage() {
             viewport={{ once: true }}
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Ready to cleanse your content?
+              Ready to power up your content?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Join 500+ agencies already using Content Cleanse.
+              Join 500+ agencies already using Creator Engine.
             </p>
             <Link href="/signup">
               <Button

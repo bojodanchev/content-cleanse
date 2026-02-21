@@ -1,5 +1,5 @@
 """
-Content Cleanse - Video Processing Worker
+Creator Engine - Video Processing Worker
 Runs on Modal.com serverless containers with FFmpeg
 
 This worker:
@@ -21,7 +21,7 @@ from typing import List, Dict, Any
 from datetime import datetime
 
 # Define the Modal app
-app = modal.App("content-cleanse")
+app = modal.App("creator-engine")
 
 # Worker directory for local file references
 _worker_dir = Path(__file__).parent
