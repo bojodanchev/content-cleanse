@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Sparkles, Shield, Layers } from 'lucide-react'
+import { Wand2, Shield, Layers } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -102,7 +102,7 @@ export function SettingsPanel({
       {mediaType !== 'image' && (
         <div className="space-y-3">
           <Label className="text-base font-medium flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
+            <Wand2 className="w-4 h-4 text-primary" />
             Watermark Removal
           </Label>
           <button

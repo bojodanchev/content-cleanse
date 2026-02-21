@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Sparkles, Loader2 } from 'lucide-react'
+import { Wand2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
@@ -38,7 +38,7 @@ export function AiCaptionForm({ onGenerate, generating, photoCount }: AiCaptionF
       {/* Niche selector */}
       <div className="space-y-3">
         <Label className="text-base font-medium flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary" />
+          <Wand2 className="w-4 h-4 text-primary" />
           Niche
         </Label>
         <div className="flex flex-wrap gap-2">
@@ -103,7 +103,7 @@ export function AiCaptionForm({ onGenerate, generating, photoCount }: AiCaptionF
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 mr-2" />
+              <Wand2 className="w-4 h-4 mr-2" />
               Generate {photoCount} Caption{photoCount !== 1 ? 's' : ''}
             </>
           )}
