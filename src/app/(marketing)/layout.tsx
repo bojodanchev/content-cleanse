@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { ReferralTracker } from '@/components/marketing/referral-tracker'
+import { SocialProofToast } from '@/components/marketing/social-proof-toast'
 
 export default function MarketingLayout({
   children,
@@ -73,6 +74,8 @@ export default function MarketingLayout({
 
       {/* Main content */}
       <main>{children}</main>
+
+      <SocialProofToast />
 
       {/* Footer */}
       <footer className="border-t border-border/40 bg-card/30">
