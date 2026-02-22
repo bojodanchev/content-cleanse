@@ -3,8 +3,8 @@ import { WorldMap } from '@/components/tracking/world-map'
 import { StatsBar } from '@/components/tracking/stats-bar'
 
 export const metadata: Metadata = {
-  title: 'Live Network | Creator Engine',
-  description: 'Real-time view of Creator Engine usage across the globe.',
+  title: 'User Analytics | Creator Engine',
+  description: 'Real-time user analytics across the Creator Engine platform.',
   robots: { index: false, follow: false },
 }
 
@@ -21,20 +21,27 @@ export default function TrackingPage() {
 
       <div className="relative max-w-7xl mx-auto px-6">
         {/* Header */}
-        <section className="pt-28 pb-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border/50 bg-card/50 text-xs text-muted-foreground mb-6">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-            </span>
-            Live data
+        <section className="pt-28 pb-8">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border/50 bg-card/50 text-xs text-muted-foreground mb-4">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+                Updating in real time
+              </div>
+              <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+                User <span className="text-primary">Analytics</span>
+              </h1>
+              <p className="text-base text-muted-foreground mt-2">
+                Global network activity across the Creator Engine platform.
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground font-mono tracking-wide uppercase">
+              {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} &middot; All regions
+            </p>
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
-            <span className="gradient-text">Live Network</span>
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            Powering creators worldwide — real-time view of the Creator Engine network.
-          </p>
         </section>
 
         {/* Stats */}
