@@ -11,15 +11,12 @@ import { getClient } from '@/lib/supabase/client'
 const comparisonFeatures = [
   { name: 'Videos per month', free: '5', pro: '100', agency: 'Unlimited' },
   { name: 'Variants per video', free: '10', pro: '100', agency: '100' },
-  { name: 'Basic transformations', free: true, pro: true, agency: true },
+  { name: 'Face swaps per month', free: '2', pro: '50', agency: 'Unlimited' },
   { name: 'Metadata stripping', free: true, pro: true, agency: true },
-  { name: 'Audio variations', free: true, pro: true, agency: true },
+  { name: 'Visual & audio micro-changes', free: true, pro: true, agency: true },
   { name: 'AI watermark removal', free: false, pro: true, agency: true },
   { name: 'Custom watermark overlay', free: false, pro: true, agency: true },
-  { name: 'Priority processing', free: false, pro: true, agency: true },
-  { name: 'API access', free: false, pro: false, agency: true },
-  { name: 'Team seats', free: '1', pro: '1', agency: '5 included' },
-  { name: 'Support', free: 'Community', pro: 'Email', agency: 'Priority' },
+  { name: 'Email support', free: false, pro: true, agency: true },
 ]
 
 export default function PricingPage() {
@@ -319,10 +316,6 @@ export default function PricingPage() {
             {
               q: 'What if my plan expires?',
               a: "You'll receive a reminder before expiry. If you don't renew, your account reverts to the Free plan. Your data is never deleted.",
-            },
-            {
-              q: 'Do you offer discounts for non-profits or students?',
-              a: 'Yes! Contact us at support@creatorengine.app with proof of status for a 50% discount on any plan.',
             },
           ].map((item, i) => (
             <motion.div
