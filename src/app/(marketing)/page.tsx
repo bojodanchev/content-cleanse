@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
@@ -29,6 +30,144 @@ const stagger = {
       staggerChildren: 0.1,
     },
   },
+}
+
+function DemoShowcase() {
+  const [activeVariant, setActiveVariant] = useState(0)
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const playVariant = useCallback((index: number) => {
+    // Pause all variant videos
+    videoRefs.current.forEach((v) => { if (v) { v.pause(); v.currentTime = 0 } })
+    // Play the active one
+    const vid = videoRefs.current[index]
+    if (vid) { vid.play().catch(() => {}) }
+    setActiveVariant(index)
+  }, [])
+
+  useEffect(() => {
+    // Start cycling after a short delay
+    const startDelay = setTimeout(() => {
+      playVariant(0)
+      intervalRef.current = setInterval(() => {
+        setActiveVariant((prev) => {
+          const next = (prev + 1) % 8
+          playVariant(next)
+          return next
+        })
+      }, 3500)
+    }, 1500)
+
+    return () => {
+      clearTimeout(startDelay)
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [playVariant])
+
+  const handleClick = (index: number) => {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    playVariant(index)
+    // Restart auto-cycle after 6s of inactivity
+    intervalRef.current = setInterval(() => {
+      setActiveVariant((prev) => {
+        const next = (prev + 1) % 8
+        playVariant(next)
+        return next
+      })
+    }, 3500)
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-4 h-[calc(100%-48px)]">
+      {/* Left panel - source video */}
+      <div className="col-span-1 rounded-xl border border-border/50 bg-secondary/30 p-4 flex flex-col">
+        <div className="relative aspect-[9/16] rounded-lg overflow-hidden bg-black mb-3">
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            poster="/demo/variant_001_poster.jpg"
+            className="w-full h-full object-cover"
+          >
+            <source src="/demo/variant_001_web.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] font-medium text-white">
+            ORIGINAL
+          </div>
+        </div>
+        <p className="font-medium text-sm truncate">summer_promo.mp4</p>
+        <p className="text-xs text-muted-foreground mt-0.5">1080p · 0:09 · 2.1MB</p>
+        <div className="mt-2 flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
+            <Check className="w-2.5 h-2.5 text-green-500" />
+          </div>
+          <span className="text-xs text-green-500 font-medium">Uploaded</span>
+        </div>
+      </div>
+
+      {/* Right panel - variants */}
+      <div className="col-span-2 rounded-xl border border-border/50 bg-secondary/30 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-xs font-medium">8 variants · Complete</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground">
+            Showing variant {activeVariant + 1} of 8
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-2 h-[calc(100%-32px)]">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              onClick={() => handleClick(i)}
+              className={`rounded-lg relative overflow-hidden bg-black cursor-pointer transition-all duration-300 ${
+                activeVariant === i
+                  ? 'ring-2 ring-primary shadow-lg shadow-primary/20 scale-[1.03]'
+                  : 'border border-border/30 opacity-70 hover:opacity-100'
+              }`}
+            >
+              {/* Poster image (always visible) */}
+              <img
+                src={`/demo/variant_00${i + 1}_poster.jpg`}
+                alt={`Variant ${i + 1}`}
+                className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-300 ${
+                  activeVariant === i ? 'opacity-0' : 'opacity-100'
+                }`}
+              />
+              {/* Video (only plays when active) */}
+              <video
+                ref={(el) => { videoRefs.current[i] = el }}
+                muted
+                loop
+                playsInline
+                poster={`/demo/variant_00${i + 1}_poster.jpg`}
+                preload="none"
+                className="w-full h-full object-cover"
+              >
+                <source src={`/demo/variant_00${i + 1}_web.mp4`} type="video/mp4" />
+              </video>
+              {/* Badge */}
+              <div className="absolute top-1 right-1 flex items-center gap-1">
+                {activeVariant === i && (
+                  <span className="px-1.5 py-0.5 rounded bg-primary/80 text-[8px] font-bold text-white">
+                    PLAYING
+                  </span>
+                )}
+                <Check className="w-2.5 h-2.5 text-green-500/70" />
+              </div>
+              {/* Variant label */}
+              <div className="absolute bottom-1 left-1">
+                <span className="text-[9px] text-white/60 font-medium">v{i + 1}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function LandingPage() {
@@ -124,75 +263,7 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 h-[calc(100%-48px)]">
-                    {/* Left panel - source video */}
-                    <div className="col-span-1 rounded-xl border border-border/50 bg-secondary/30 p-4 flex flex-col">
-                      <div className="relative aspect-[9/16] rounded-lg overflow-hidden bg-black mb-3">
-                        <video
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          poster="/demo/variant_001_poster.jpg"
-                          className="w-full h-full object-cover"
-                        >
-                          <source src="/demo/variant_001_web.mp4" type="video/mp4" />
-                        </video>
-                      </div>
-                      <p className="font-medium text-sm truncate">summer_promo.mp4</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">1080p · 0:09 · 2.1MB</p>
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                          <Check className="w-2.5 h-2.5 text-green-500" />
-                        </div>
-                        <span className="text-xs text-green-500 font-medium">Uploaded</span>
-                      </div>
-                    </div>
-
-                    {/* Right panel - variants */}
-                    <div className="col-span-2 rounded-xl border border-border/50 bg-secondary/30 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-green-500" />
-                          <span className="text-xs font-medium">8 variants · Complete</span>
-                        </div>
-                      </div>
-                      <motion.div
-                        className="grid grid-cols-4 gap-2 h-[calc(100%-32px)]"
-                        variants={{
-                          show: { transition: { staggerChildren: 0.08 } },
-                        }}
-                        initial="hidden"
-                        animate="show"
-                      >
-                        {Array.from({ length: 8 }).map((_, i) => (
-                          <motion.div
-                            key={i}
-                            variants={{
-                              hidden: { opacity: 0, scale: 0.9 },
-                              show: { opacity: 1, scale: 1 },
-                            }}
-                            className="rounded-lg border border-border/30 relative overflow-hidden bg-black"
-                          >
-                            <video
-                              autoPlay
-                              muted
-                              loop
-                              playsInline
-                              poster={`/demo/variant_00${i + 1}_poster.jpg`}
-                              className="w-full h-full object-cover"
-                              preload="none"
-                            >
-                              <source src={`/demo/variant_00${i + 1}_web.mp4`} type="video/mp4" />
-                            </video>
-                            <div className="absolute top-1 right-1">
-                              <Check className="w-2.5 h-2.5 text-green-500/70" />
-                            </div>
-                          </motion.div>
-                        ))}
-                      </motion.div>
-                    </div>
-                  </div>
+                  <DemoShowcase />
                 </div>
               </div>
             </div>
