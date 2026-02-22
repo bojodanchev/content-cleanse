@@ -20,6 +20,7 @@ import { ProgressTracker } from '@/components/upload/progress-tracker'
 import { getClient } from '@/lib/supabase/client'
 import type { Job, Profile } from '@/lib/supabase/types'
 import { downloadJobFiles as downloadFiles } from '@/lib/download'
+import { sanitizeFilename } from '@/lib/sanitize-filename'
 
 type ViewState = 'upload' | 'settings' | 'processing'
 type MediaType = 'video' | 'image'
@@ -171,7 +172,8 @@ export default function CleanPage() {
     try {
       const bucket = mediaType === 'image' ? 'images' : 'videos'
       const jobType = mediaType === 'image' ? 'photo_clean' : undefined
-      const fileName = `${profile.id}/${Date.now()}-${selectedFile.name}`
+      const safeName = sanitizeFilename(selectedFile.name)
+      const fileName = `${profile.id}/${Date.now()}-${safeName}`
 
       // Simulate upload progress
       const progressInterval = setInterval(() => {

@@ -26,6 +26,7 @@ import { cn, formatBytes } from '@/lib/utils'
 import { useDropzone } from 'react-dropzone'
 import { getPlanById } from '@/lib/crypto/plans'
 import type { Job, Profile } from '@/lib/supabase/types'
+import { sanitizeFilename } from '@/lib/sanitize-filename'
 
 type ViewState = 'upload' | 'captions' | 'settings' | 'processing' | 'multiply'
 
@@ -299,7 +300,7 @@ export default function CaptionsPage() {
       // Upload all photos in parallel to Supabase images bucket
       const settled = await Promise.allSettled(
         filledPhotos.map(async (photo) => {
-          const fileName = `${profile.id}/${Date.now()}-${photo.id}-${photo.file.name}`
+          const fileName = `${profile.id}/${Date.now()}-${photo.id}-${sanitizeFilename(photo.file.name)}`
           const { error: uploadError } = await supabase.storage
             .from('images')
             .upload(fileName, photo.file)

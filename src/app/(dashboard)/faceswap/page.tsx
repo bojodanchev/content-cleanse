@@ -21,6 +21,7 @@ import { cn, formatBytes } from '@/lib/utils'
 import { useDropzone } from 'react-dropzone'
 import { getPlanById } from '@/lib/crypto/plans'
 import type { Job, Profile, Face } from '@/lib/supabase/types'
+import { sanitizeFilename } from '@/lib/sanitize-filename'
 
 type ViewState = 'upload' | 'face' | 'settings' | 'processing'
 
@@ -184,7 +185,7 @@ export default function FaceswapPage() {
       const bucket = sourceType === 'video' ? 'videos' : 'images'
 
       // Upload source file
-      const sourceFileName = `${profile.id}/${Date.now()}-${selectedFile.name}`
+      const sourceFileName = `${profile.id}/${Date.now()}-${sanitizeFilename(selectedFile.name)}`
       const { error: uploadError } = await supabase.storage.from(bucket).upload(sourceFileName, selectedFile)
       if (uploadError) throw uploadError
 
@@ -196,7 +197,7 @@ export default function FaceswapPage() {
         facePath = selectedFace.file_path
         faceId = selectedFace.id
       } else if (uploadedFaceFile) {
-        facePath = `${profile.id}/${Date.now()}-face-${uploadedFaceFile.name}`
+        facePath = `${profile.id}/${Date.now()}-face-${sanitizeFilename(uploadedFaceFile.name)}`
         const { error: faceUploadError } = await supabase.storage.from('faces').upload(facePath, uploadedFaceFile)
         if (faceUploadError) throw faceUploadError
 
