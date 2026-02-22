@@ -181,7 +181,7 @@ export default function LandingPage() {
                               playsInline
                               poster={`/demo/variant_00${i + 1}_poster.jpg`}
                               className="w-full h-full object-cover"
-                              loading="lazy"
+                              preload="none"
                             >
                               <source src={`/demo/variant_00${i + 1}_web.mp4`} type="video/mp4" />
                             </video>
