@@ -248,10 +248,10 @@ export default function LandingPage() {
             transition={{ delay: 0.6, duration: 0.8 }}
             className="mt-16 relative"
           >
-            <div className="aspect-[16/10] max-w-5xl mx-auto rounded-2xl overflow-hidden gradient-border">
-              <div className="absolute inset-[1px] rounded-2xl bg-card overflow-hidden">
+            <div className="max-w-5xl mx-auto rounded-2xl overflow-hidden gradient-border relative">
+              <div className="rounded-2xl bg-card">
                 {/* Mockup of the dashboard */}
-                <div className="w-full h-full bg-gradient-to-br from-card to-secondary/30 p-4 md:p-6">
+                <div className="bg-gradient-to-br from-card to-secondary/30 p-4 md:p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-3 h-3 rounded-full bg-destructive/50" />
                     <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
