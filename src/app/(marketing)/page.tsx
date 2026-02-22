@@ -125,15 +125,22 @@ export default function LandingPage() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-4 h-[calc(100%-48px)]">
-                    {/* Left panel - uploaded state */}
+                    {/* Left panel - source video */}
                     <div className="col-span-1 rounded-xl border border-border/50 bg-secondary/30 p-4 flex flex-col">
-                      <div className="relative aspect-video rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 via-accent/10 to-secondary/40 mb-3 flex items-center justify-center">
-                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20">
-                          <Play className="w-5 h-5 text-white fill-white" />
-                        </div>
+                      <div className="relative aspect-[9/16] rounded-lg overflow-hidden bg-black mb-3">
+                        <video
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          poster="/demo/variant_001_poster.jpg"
+                          className="w-full h-full object-cover"
+                        >
+                          <source src="/demo/variant_001_web.mp4" type="video/mp4" />
+                        </video>
                       </div>
                       <p className="font-medium text-sm truncate">summer_promo.mp4</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">1080p · 2:34 · 48MB</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">1080p · 0:09 · 2.1MB</p>
                       <div className="mt-2 flex items-center gap-1.5">
                         <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-green-500" />
@@ -158,27 +165,31 @@ export default function LandingPage() {
                         initial="hidden"
                         animate="show"
                       >
-                        {Array.from({ length: 8 }).map((_, i) => {
-                          const hue = (318 + i * 30) % 360
-                          return (
-                            <motion.div
-                              key={i}
-                              variants={{
-                                hidden: { opacity: 0, scale: 0.9 },
-                                show: { opacity: 1, scale: 1 },
-                              }}
-                              className="rounded-lg border border-border/30 flex items-center justify-center relative overflow-hidden"
-                              style={{
-                                background: `linear-gradient(135deg, hsla(${hue}, 60%, 40%, 0.15), hsla(${(hue + 60) % 360}, 60%, 40%, 0.1))`,
-                              }}
+                        {Array.from({ length: 8 }).map((_, i) => (
+                          <motion.div
+                            key={i}
+                            variants={{
+                              hidden: { opacity: 0, scale: 0.9 },
+                              show: { opacity: 1, scale: 1 },
+                            }}
+                            className="rounded-lg border border-border/30 relative overflow-hidden bg-black"
+                          >
+                            <video
+                              autoPlay
+                              muted
+                              loop
+                              playsInline
+                              poster={`/demo/variant_00${i + 1}_poster.jpg`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
                             >
-                              <span className="text-[10px] text-muted-foreground">v{i + 1}</span>
-                              <div className="absolute top-1 right-1">
-                                <Check className="w-2.5 h-2.5 text-green-500/70" />
-                              </div>
-                            </motion.div>
-                          )
-                        })}
+                              <source src={`/demo/variant_00${i + 1}_web.mp4`} type="video/mp4" />
+                            </video>
+                            <div className="absolute top-1 right-1">
+                              <Check className="w-2.5 h-2.5 text-green-500/70" />
+                            </div>
+                          </motion.div>
+                        ))}
                       </motion.div>
                     </div>
                   </div>
@@ -196,8 +207,8 @@ export default function LandingPage() {
             className="mt-8 flex flex-wrap items-center justify-center gap-6 md:gap-8"
           >
             {[
-              { icon: Zap, label: '2.3s avg processing', color: 'text-primary' },
-              { icon: Shield, label: '99.9% detection bypass', color: 'text-accent' },
+              { icon: Zap, label: '<10s avg processing', color: 'text-primary' },
+              { icon: Shield, label: '98.3% detection bypass', color: 'text-accent' },
               { icon: Layers, label: 'Up to 100 variants', color: 'text-primary' },
             ].map((stat, i) => (
               <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -213,14 +224,14 @@ export default function LandingPage() {
       <section className="py-16 border-y border-border/40">
         <div className="max-w-7xl mx-auto px-6">
           <p className="text-center text-sm text-muted-foreground mb-8">
-            Trusted by 500+ content agencies worldwide
+            Trusted by 25+ content agencies worldwide
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: '10,000+', label: 'Videos processed' },
-              { value: '500+', label: 'Active agencies' },
-              { value: '99.9%', label: 'Detection bypass' },
-              { value: '<3s', label: 'Processing time' },
+              { value: '800+', label: 'Videos processed' },
+              { value: '25+', label: 'Active agencies' },
+              { value: '98.3%', label: 'Detection bypass' },
+              { value: '<10s', label: 'Processing time' },
             ].map((stat, i) => (
               <motion.div
                 key={i}
@@ -608,7 +619,7 @@ export default function LandingPage() {
               Ready to power up your content?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Join 500+ agencies already using Creator Engine.
+              Join 25+ agencies already using Creator Engine.
             </p>
             <Link href="/signup">
               <Button
