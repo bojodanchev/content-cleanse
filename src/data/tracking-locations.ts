@@ -30,3 +30,25 @@ export const totalUsers = locations.reduce((sum, l) => sum + l.users, 0)
 export const totalCountries = new Set(locations.map(l => l.country)).size
 export const totalCities = locations.length
 export const uptimePercent = 99.97
+
+/**
+ * Derive plan breakdown from total users using a realistic SaaS funnel.
+ * - Free: ~72% (most users try it free)
+ * - Pro: ~22% (power users who convert)
+ * - Agency: ~6% (high-value, always at least 1 if total > 10)
+ *
+ * Uses floor/ceil to ensure the numbers always sum to totalUsers exactly.
+ */
+function derivePlanBreakdown(total: number) {
+  const agencyRaw = total * 0.06
+  const proRaw = total * 0.22
+
+  // Agency: at least 1 once there are enough users
+  const agency = total > 10 ? Math.max(1, Math.round(agencyRaw)) : 0
+  const pro = Math.round(proRaw)
+  const free = total - pro - agency
+
+  return { free, pro, agency }
+}
+
+export const planBreakdown = derivePlanBreakdown(totalUsers)
