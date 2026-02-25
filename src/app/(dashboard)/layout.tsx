@@ -17,7 +17,7 @@ import { UserMenu } from '@/components/dashboard/user-menu'
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Cleaner Pro v1.0', href: '/clean', icon: Wand2 },
-  { name: 'Photo Captions', href: '/captions', icon: ImagePlus },
+  { name: 'Caption Ultimate v1.0', href: '/captions', icon: ImagePlus },
   { name: 'Face Swap', href: '/faceswap', icon: Repeat },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]

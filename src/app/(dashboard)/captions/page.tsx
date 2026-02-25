@@ -542,7 +542,7 @@ export default function CaptionsPage() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Photo Captions</h1>
+        <h1 className="text-3xl font-bold mb-2">Caption Ultimate v1.0</h1>
         <p className="text-muted-foreground">
           Upload photos and generate captioned image variants
         </p>

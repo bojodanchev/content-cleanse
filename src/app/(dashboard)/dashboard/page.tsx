@@ -352,7 +352,7 @@ export default function DashboardPage() {
                   </Button>
                 </Link>
                 <Link href="/captions">
-                  <Button variant="outline">Photo Captions</Button>
+                  <Button variant="outline">Caption Ultimate</Button>
                 </Link>
                 <Link href="/faceswap">
                   <Button variant="outline">Face Swap</Button>
