@@ -76,6 +76,16 @@ export default function AdminPage() {
 
   const pageSize = 20
 
+  // ── Check existing session on mount ──────────────────────────────
+  const [checking, setChecking] = useState(true)
+  useEffect(() => {
+    fetch('/api/admin/auth')
+      .then(res => res.json())
+      .then(data => { if (data.authenticated) setAuthed(true) })
+      .catch(() => {})
+      .finally(() => setChecking(false))
+  }, [])
+
   // ── Auth ──────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -195,6 +205,14 @@ export default function AdminPage() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   // ── Password gate ────────────────────────────────────────────────
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center pt-16">
+        <div className="text-zinc-500 text-sm">Checking session...</div>
+      </div>
+    )
+  }
+
   if (!authed) {
     return (
       <div className="min-h-screen flex items-center justify-center pt-16">

@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createSessionToken, setAdminCookie } from '@/lib/admin/auth'
+import { createSessionToken, setAdminCookie, verifyAdminSession } from '@/lib/admin/auth'
+
+export async function GET() {
+  const valid = await verifyAdminSession()
+  return NextResponse.json({ authenticated: valid })
+}
 
 export async function POST(request: Request) {
   try {

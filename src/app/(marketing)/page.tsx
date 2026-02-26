@@ -9,7 +9,7 @@ import {
   Layers,
   Clock,
   Download,
-  Sparkles,
+  Wand2,
   Check,
   ArrowRight,
   Play,
@@ -409,7 +409,7 @@ export default function LandingPage() {
                   'Remove all EXIF data, randomize timestamps, and change encoder signatures.',
               },
               {
-                icon: Sparkles,
+                icon: Wand2,
                 title: 'Visual Micro-Changes',
                 description:
                   'Subtle brightness, saturation, hue, and crop adjustments invisible to the eye.',
