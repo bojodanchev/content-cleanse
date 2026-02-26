@@ -24,9 +24,16 @@
 - **`NEXT_PUBLIC_` vars are baked at build time**: Must redeploy after changing them
 - **`vercel env rm` with `yes |`**: Loops forever — use `echo y |` instead
 
+## Supabase Storage
+- **Filenames with emojis/special chars**: Supabase Storage rejects keys containing emojis, apostrophes, and non-ASCII characters with "Invalid key" error. Use `sanitizeFilename()` from `@/lib/sanitize-filename` on all uploads.
+
 ## Next.js / React
 - **Radix UI DropdownMenuItem with `asChild` + `<form>`**: Doesn't work — dropdown closes before form submits
 - **Logo icon cropping**: Pillow `getbbox()` → `crop()` for tight transparent padding trim
+- **react-simple-maps + React 19**: Peer dep conflict — needs `.npmrc` with `legacy-peer-deps=true` for Vercel builds
+- **`loading="lazy"` invalid on `<video>`**: Build error — only valid on `<img>` and `<iframe>`. Use `preload="none"` instead
+- **Next.js 16 async params**: Dynamic route handlers must use `params: Promise<{ id: string }>` and `await params` — old `{ id: string }` causes type error
+- **Fixed aspect ratio clips tall content**: `aspect-[16/10]` + `overflow-hidden` clips portrait (9:16) video grids. Remove aspect constraint, let content flow
 
 ## Payments
 - **NOWPayments IPN verification**: Sort payload keys alphabetically, JSON.stringify, HMAC-SHA512 with IPN secret, timingSafeEqual comparison

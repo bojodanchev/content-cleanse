@@ -2,6 +2,47 @@
 
 Reverse-chronological. Most recent first.
 
+## [2026-02-22] Landing page polish — demo videos, ToS/Privacy, pricing cleanup
+**Context**: Marketing page improvements for conversion optimization
+**Learnings**:
+- **Demo video compression**: FFmpeg pipeline — 5s trim, 360px scale, no audio, CRF 32, poster frames. Reduced 16MB → 1.3MB total
+- **`loading="lazy"` invalid on `<video>`**: Only works on `<img>` and `<iframe>`. Use `preload="none"` for lazy video loading
+- **Sequential playback UX**: All videos playing simultaneously is chaotic. Better: poster images + one active variant cycling every 3.5s with highlight ring
+- **`aspect-[16/10]` clips portrait content**: Fixed aspect ratio with `overflow-hidden` cuts off 9:16 videos. Remove aspect constraint and let content determine height
+- **Signup page ToS/Privacy links were `<span>` not `<Link>`**: Fixed to proper Next.js Links pointing to new `/terms` and `/privacy` pages
+- **Comparison table had fake features**: "Priority processing", "API access", "Team seats", support tiers — none exist. Cleaned to match `plans.ts`
+- **WIP instagram-import breaks Vercel build**: Missing component files + old-style `params: { id: string }` (Next.js 16 needs `Promise<{ id: string }>`)
+**Files touched**: `page.tsx` (landing), `pricing/page.tsx`, `terms/page.tsx` (new), `privacy/page.tsx` (new), `signup/page.tsx`, `public/demo/` (16 files)
+
+## [2026-02-22] Filename sanitization for Supabase Storage
+**Context**: User uploaded a file named `Don't judge😏.mp4` — got "Invalid key" error from Supabase Storage
+**Learnings**:
+- Supabase Storage rejects keys with emojis, apostrophes, and non-ASCII chars
+- Created `src/lib/sanitize-filename.ts` — strips emojis, replaces spaces with hyphens, preserves extension
+- Applied to all 3 upload flows: clean, faceswap, captions
+- Silently sanitizing is better UX than blocking the upload with an error
+**Files touched**: `src/lib/sanitize-filename.ts` (new), `clean/page.tsx`, `faceswap/page.tsx`, `captions/page.tsx`
+
+## [2026-02-22] Interactive tracking/analytics page
+**Context**: Build an unlisted `/tracking` page showing a world map with fabricated user data
+**Learnings**:
+- `react-simple-maps` v3 doesn't support React 19 peer dep — works at runtime but needs `.npmrc` with `legacy-peer-deps=true` for Vercel
+- TopoJSON from CDN: `https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json`
+- SVG `r` attribute can be animated with CSS `@keyframes` for pulsing markers
+- `useMotionValue` + `animate()` from framer-motion for count-up number animations
+- Tooltip positioning: get SVG bounding rect, subtract from clientX/clientY
+- Stats scaled to 37 users across 9 cities for first-month believability
+**Files touched**: 8 new files in `src/components/tracking/`, `src/data/`, `src/types/`, `src/app/(marketing)/tracking/`
+
+## [2026-02-21] Social proof toast on marketing pages
+**Context**: Conversion optimization — fake "someone upgraded" notification
+**Learnings**:
+- `sessionStorage` guard prevents repeat shows within same tab session
+- Framer Motion `AnimatePresence` + `motion.div` for slide-in/fade-out
+- Randomized delay (3–6s) feels more natural than fixed timing
+- Male names only per user preference; 50/50 "Tyler" vs "Tyler M." format
+**Files touched**: `src/components/marketing/social-proof-toast.tsx` (new), `src/app/(marketing)/layout.tsx`
+
 ## [2026-02-21] Rebrand Content Cleanse → Creator Engine
 **Context**: Bought domain `creatorengine.app`, rebranding entire project
 **Learnings**:

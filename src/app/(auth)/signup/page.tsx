@@ -1,30 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Loader2, Mail, Lock, User, ArrowRight, Check } from 'lucide-react'
+import { Loader2, Mail, Lock, User, ArrowRight, Check, AtSign, Tag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getClient } from '@/lib/supabase/client'
 
 const features = [
-  'Transform videos into unique variants',
-  'AI-powered watermark removal',
-  'Batch processing up to 100 variants',
+  'Unique video & carousel variants in seconds',
+  'AI captions, face swap & watermark removal',
+  'Scale content across platforms effortlessly',
 ]
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [telegram, setTelegram] = useState('')
+  const [referralCode, setReferralCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
   const router = useRouter()
+
+  useEffect(() => {
+    const refCode = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('ref_code='))
+      ?.split('=')[1]
+    if (refCode) setReferralCode(decodeURIComponent(refCode))
+  }, [])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +56,8 @@ export default function SignupPage() {
       options: {
         data: {
           full_name: fullName,
-          referred_by: referredBy,
+          telegram_handle: telegram,
+          referred_by: referralCode || referredBy,
         },
       },
     })
@@ -112,7 +123,7 @@ export default function SignupPage() {
               transition={{ delay: 0.1 }}
               className="text-3xl font-bold mb-2"
             >
-              Start cleansing
+              Get started
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -120,7 +131,7 @@ export default function SignupPage() {
               transition={{ delay: 0.2 }}
               className="text-muted-foreground"
             >
-              Create your account and get 5 free videos
+              Start free — 5 credits, no card required
             </motion.p>
           </div>
 
@@ -218,6 +229,53 @@ export default function SignupPage() {
               </p>
             </motion.div>
 
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.55 }}
+              className="space-y-2"
+            >
+              <Label htmlFor="telegram" className="text-sm font-medium">
+                Telegram handle
+              </Label>
+              <div className="relative">
+                <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="telegram"
+                  type="text"
+                  name="telegram"
+                  placeholder="username"
+                  value={telegram}
+                  onChange={(e) => setTelegram(e.target.value)}
+                  className="pl-10 bg-secondary/50 border-border/50 focus:border-primary h-11"
+                  required
+                />
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.58 }}
+              className="space-y-2"
+            >
+              <Label htmlFor="referralCode" className="text-sm font-medium">
+                Referral code
+              </Label>
+              <div className="relative">
+                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="referralCode"
+                  type="text"
+                  name="referralCode"
+                  placeholder="Enter code (optional)"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value)}
+                  className="pl-10 bg-secondary/50 border-border/50 focus:border-primary h-11"
+                />
+              </div>
+            </motion.div>
+
             {error && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -231,7 +289,7 @@ export default function SignupPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
+              transition={{ delay: 0.65 }}
             >
               <Button
                 type="submit"

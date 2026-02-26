@@ -19,11 +19,13 @@ modal deploy src/workers/process-video/main.py       # Modal worker
 
 ## Project Structure
 ```
-src/app/(dashboard)/     # captions/, faceswap/, dashboard/, library/, settings/
+src/app/(dashboard)/     # captions/, faceswap/, clean/, library/, settings/
+src/app/(marketing)/     # landing, pricing, tracking (analytics map)
 src/app/api/jobs/        # create, process-captions, process-multiply, process-faceswap
 src/lib/supabase/        # client, server, types.ts (all DB types)
 src/lib/crypto/plans.ts  # Plan config (quota, variantLimit, faceswapLimit)
 src/lib/modal/client.ts  # Modal API client (trigger*Processing functions)
+src/lib/sanitize-filename.ts  # Strip emojis/special chars for Supabase Storage
 src/workers/process-video/main.py  # ALL Modal processing functions + endpoints
 ```
 
@@ -55,11 +57,11 @@ Dark cyberpunk theme. Primary: electric magenta. Accent: cyan. Background: deep 
 ## Gotchas (Top 5)
 > Full list: [docs/gotchas.md](docs/gotchas.md)
 
+- **Filenames**: Emojis/special chars break Supabase Storage — always use `sanitizeFilename()` on uploads
 - Realtime must be enabled per-table: `ALTER PUBLICATION supabase_realtime ADD TABLE tablename;`
 - Modal image ordering: `add_local_*` AFTER `run_commands`
-- `@modal.fastapi_endpoint` not `@modal.web_endpoint`
-- Vercel env vars: use `echo -n` to avoid trailing newline corruption
-- `NEXT_PUBLIC_` vars require redeploy — they're baked at build time
+- Vercel env vars: use `echo -n` to avoid trailing newline corruption; `NEXT_PUBLIC_` vars require redeploy
+- **`.npmrc`**: `legacy-peer-deps=true` required for react-simple-maps + React 19 on Vercel
 
 ## DB Migrations
 013 migrations applied (001–013). Apply via Supabase MCP `apply_migration`.
@@ -70,9 +72,11 @@ Dark cyberpunk theme. Primary: electric magenta. Accent: cyan. Background: deep 
 - [2026-02-21] Carousel multiply as separate job type with parent_job_id link
 
 ## Active Context
-Rebranded Content Cleanse → Creator Engine (2026-02-21). Production hardening: security fixes, fetch timeouts, job status guards. Modal needs redeployment for new app name.
+Landing page polished: real demo videos with sequential playback, ToS/Privacy pages live, pricing comparison cleaned. Modal still needs redeployment for new app name.
 
 ## Discovery Log
 > Full log: [docs/discovery-log.md](docs/discovery-log.md)
 
-- [2026-02-21] Rebrand to Creator Engine + production hardening (19 security/quality fixes)
+- [2026-02-22] Landing page polish — demo videos, ToS/Privacy, pricing cleanup, build fixes
+- [2026-02-22] Filename sanitization — emojis/special chars in uploads broke Supabase Storage
+- [2026-02-22] Interactive `/tracking` analytics page with world map + animated stats

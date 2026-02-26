@@ -84,6 +84,7 @@ export interface Database {
           plan_expires_at: string | null
           referred_by: string | null
           notification_preferences: NotificationPreferences | null
+          telegram_handle: string | null
           created_at: string
           updated_at: string
         }
@@ -99,6 +100,7 @@ export interface Database {
           plan_expires_at?: string | null
           referred_by?: string | null
           notification_preferences?: NotificationPreferences | null
+          telegram_handle?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -114,6 +116,7 @@ export interface Database {
           plan_expires_at?: string | null
           referred_by?: string | null
           notification_preferences?: NotificationPreferences | null
+          telegram_handle?: string | null
           created_at?: string
           updated_at?: string
         }
