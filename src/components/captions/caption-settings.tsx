@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Type, AlignVerticalJustifyCenter, Film, Shield } from 'lucide-react'
+import { Type, AlignVerticalJustifyCenter, Film, Shield, Lock } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -128,46 +128,42 @@ export function CaptionSettings({
         </div>
       </div>
 
-      {/* Generate video toggle */}
+      {/* Generate video — coming soon */}
       <div className="space-y-3">
         <Label className="text-base font-medium flex items-center gap-2">
-          <Film className="w-4 h-4 text-primary" />
-          Slideshow Video
+          <Film className="w-4 h-4 text-muted-foreground/50" />
+          <span className="text-muted-foreground/50">Slideshow Video</span>
         </Label>
-        <button
-          onClick={() => onChange({ ...settings, generateVideo: !settings.generateVideo })}
-          className={cn(
-            'w-full p-4 rounded-xl border text-left transition-all',
-            settings.generateVideo
-              ? 'border-primary bg-primary/10'
-              : 'border-border/50 bg-card/50'
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
-                settings.generateVideo
-                  ? 'border-primary bg-primary'
-                  : 'border-muted-foreground'
-              )}
-            >
-              {settings.generateVideo && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="w-2 h-2 rounded-full bg-white"
-                />
-              )}
+        <div className="relative w-full rounded-xl border border-border/30 bg-card/30 overflow-hidden select-none">
+          {/* Chain pattern overlay */}
+          <div className="absolute inset-0 opacity-[0.04]" style={{
+            backgroundImage: `repeating-linear-gradient(
+              45deg,
+              transparent,
+              transparent 10px,
+              currentColor 10px,
+              currentColor 12px
+            )`,
+          }} />
+
+          <div className="relative flex flex-col items-center justify-center py-8 px-4 gap-3">
+            {/* Lock icon with chain ring */}
+            <div className="relative">
+              <div className="w-14 h-14 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                <Lock className="w-6 h-6 text-muted-foreground/50" />
+              </div>
             </div>
-            <div>
-              <p className="font-medium">Generate Slideshow Video</p>
-              <p className="text-sm text-muted-foreground">
-                Create an MP4 slideshow from all captioned images with transitions
+
+            <div className="text-center">
+              <p className="text-xs font-bold tracking-[0.2em] uppercase text-muted-foreground/60">
+                Coming Soon
+              </p>
+              <p className="text-xs text-muted-foreground/40 mt-1">
+                Generate MP4 slideshows from captioned images
               </p>
             </div>
           </div>
-        </button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -191,9 +187,7 @@ export function CaptionSettings({
           </li>
           <li className="flex items-center justify-between">
             <span>Slideshow video</span>
-            <span className="font-medium text-foreground">
-              {settings.generateVideo ? 'Yes' : 'No'}
-            </span>
+            <span className="text-xs font-medium text-muted-foreground/50 uppercase tracking-wider">Soon</span>
           </li>
         </ul>
       </div>
