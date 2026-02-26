@@ -135,11 +135,6 @@ export default function MarketingLayout({
                     Pricing
                   </Link>
                 </li>
-                <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
-                    API
-                  </Link>
-                </li>
               </ul>
             </div>
 
@@ -148,19 +143,19 @@ export default function MarketingLayout({
               <h4 className="font-semibold mb-4 text-sm">Company</h4>
               <ul className="space-y-3 text-sm text-muted-foreground">
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <Link href="/about" className="hover:text-foreground transition-colors">
                     About
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
-                    Blog
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-foreground transition-colors">
+                  <a
+                    href="https://t.me/CreatorEngine"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-foreground transition-colors"
+                  >
                     Contact
-                  </Link>
+                  </a>
                 </li>
               </ul>
             </div>
