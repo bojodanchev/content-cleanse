@@ -475,7 +475,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-12">
             {[
               {
                 step: '01',
@@ -501,19 +501,14 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="relative"
+                transition={{ delay: i * 0.15 }}
+                className="relative text-center md:text-left"
               >
-                {/* Connector line */}
-                {i < 2 && (
-                  <div className="hidden md:block absolute top-8 left-[60px] w-[calc(100%-60px)] h-[1px] bg-gradient-to-r from-primary/30 to-transparent" />
-                )}
-
-                <div className="text-6xl font-bold text-primary/40 mb-4">
+                <div className="text-5xl font-bold text-primary/30 mb-3 tabular-nums">
                   {item.step}
                 </div>
-                <h3 className="text-2xl font-semibold mb-2">{item.title}</h3>
-                <p className="text-muted-foreground">{item.description}</p>
+                <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
               </motion.div>
             ))}
           </div>
