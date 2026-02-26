@@ -15,6 +15,7 @@ interface UserRow {
   id: string
   email: string
   full_name: string | null
+  telegram_handle: string | null
   plan: string
   plan_expires_at: string | null
   quota_used: number
@@ -299,6 +300,7 @@ export default function AdminPage() {
               <tr className="bg-zinc-900/80 text-zinc-400 text-left">
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Full Name</th>
+                <th className="px-4 py-3 font-medium">Telegram</th>
                 <th className="px-4 py-3 font-medium">Plan</th>
                 <th className="px-4 py-3 font-medium">Expires</th>
                 <th className="px-4 py-3 font-medium">Quota</th>
@@ -310,7 +312,7 @@ export default function AdminPage() {
               {usersLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-t border-zinc-800/60">
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 w-24 rounded bg-zinc-800 animate-pulse" />
                       </td>
@@ -319,7 +321,7 @@ export default function AdminPage() {
                 ))
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
+                  <td colSpan={8} className="px-4 py-12 text-center text-zinc-500">
                     No users found
                   </td>
                 </tr>
@@ -331,6 +333,20 @@ export default function AdminPage() {
                   >
                     <td className="px-4 py-3 text-white font-mono text-xs">{u.email}</td>
                     <td className="px-4 py-3 text-zinc-300">{u.full_name || '\u2014'}</td>
+                    <td className="px-4 py-3 text-zinc-300 text-xs">
+                      {u.telegram_handle ? (
+                        <a
+                          href={`https://t.me/${u.telegram_handle.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-cyan-400 hover:underline"
+                        >
+                          @{u.telegram_handle.replace('@', '')}
+                        </a>
+                      ) : (
+                        '\u2014'
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${planBadgeClass[u.plan] || planBadgeClass.free}`}
