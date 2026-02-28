@@ -214,7 +214,7 @@ export default function DashboardPage() {
     (job.job_type === 'faceswap' && (job.settings as any)?.source_type === 'image')
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
@@ -224,7 +224,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
         {[
           {
             label: 'Total Jobs',
@@ -344,7 +344,7 @@ export default function DashboardPage() {
                 : 'Start creating unique content variants'}
             </p>
             {!search && statusFilter === 'all' && typeFilter === 'all' && (
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-3">
                 <Link href="/clean">
                   <Button className="bg-primary">
                     Clean Video/Photo

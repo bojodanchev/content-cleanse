@@ -338,7 +338,7 @@ export default function FaceswapPage() {
   const faceswapLimit = planConfig?.faceswapLimit ?? 2
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Face Swap</h1>
         <p className="text-muted-foreground">

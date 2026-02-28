@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { UserMenu } from '@/components/dashboard/user-menu'
+import { MobileNav } from '@/components/dashboard/mobile-nav'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -76,8 +77,19 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background flex">
+      {/* Mobile Navigation */}
+      <MobileNav
+        navigation={navigation}
+        quotaUsed={profile?.quota_used || 0}
+        monthlyQuota={profile?.monthly_quota || 5}
+        quotaPercentage={quotaPercentage}
+        initials={initials}
+        displayName={profile?.full_name || 'User'}
+        plan={profile?.plan || 'free'}
+      />
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border/40 bg-card/30 flex flex-col h-screen sticky top-0">
+      <aside className="hidden md:flex w-64 border-r border-border/40 bg-card/30 flex-col h-screen sticky top-0">
         {/* Logo */}
         <div className="p-4 border-b border-border/40">
           <Link href="/dashboard" className="flex items-center gap-2.5">
@@ -144,7 +156,7 @@ export default async function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto pt-14 md:pt-0">{children}</main>
     </div>
   )
 }

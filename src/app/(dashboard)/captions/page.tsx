@@ -540,7 +540,7 @@ export default function CaptionsPage() {
   const maxCopies = slideCount > 0 ? Math.floor(variantLimit / slideCount) : 0
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Caption Ultimate v1.0</h1>
         <p className="text-muted-foreground">
