@@ -79,7 +79,6 @@ export default async function DashboardLayout({
     <div className="min-h-screen bg-background flex">
       {/* Mobile Navigation */}
       <MobileNav
-        navigation={navigation}
         quotaUsed={profile?.quota_used || 0}
         monthlyQuota={profile?.monthly_quota || 5}
         quotaPercentage={quotaPercentage}

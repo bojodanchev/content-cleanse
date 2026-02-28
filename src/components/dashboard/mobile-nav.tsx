@@ -4,13 +4,29 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Menu, X, Zap } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Wand2,
+  Settings,
+  ImagePlus,
+  Repeat,
+  Menu,
+  X,
+  Zap,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { UserMenu } from '@/components/dashboard/user-menu'
 
+const navigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Cleaner Pro v1.0', href: '/clean', icon: Wand2 },
+  { name: 'Caption Ultimate v1.0', href: '/captions', icon: ImagePlus },
+  { name: 'Face Swap', href: '/faceswap', icon: Repeat },
+  { name: 'Settings', href: '/settings', icon: Settings },
+]
+
 interface MobileNavProps {
-  navigation: { name: string; href: string; icon: React.ComponentType<{ className?: string }> }[]
   quotaUsed: number
   monthlyQuota: number
   quotaPercentage: number
@@ -20,7 +36,6 @@ interface MobileNavProps {
 }
 
 export function MobileNav({
-  navigation,
   quotaUsed,
   monthlyQuota,
   quotaPercentage,
