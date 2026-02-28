@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { ReferralTracker } from '@/components/marketing/referral-tracker'
 import { SocialProofToast } from '@/components/marketing/social-proof-toast'
+import { MobileMenu } from '@/components/marketing/mobile-menu'
 
 export default function MarketingLayout({
   children,
@@ -60,7 +61,7 @@ export default function MarketingLayout({
             </Link>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             <a
               href="https://t.me/CreatorEngine"
               target="_blank"
@@ -86,6 +87,8 @@ export default function MarketingLayout({
               </Button>
             </Link>
           </div>
+
+          <MobileMenu />
         </nav>
       </header>
 
