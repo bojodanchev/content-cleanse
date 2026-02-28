@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function TrackingPage() {
   return (
-    <div className="overflow-hidden">
+    <div className="relative overflow-hidden">
       {/* Background effects */}
       <div className="absolute inset-0 grid-pattern opacity-50" />
       <div className="absolute inset-0 noise-overlay" />
