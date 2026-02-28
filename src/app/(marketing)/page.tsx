@@ -14,6 +14,10 @@ import {
   ArrowRight,
   Play,
   ChevronDown,
+  Video,
+  Type,
+  Users,
+  Copy,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PLANS } from '@/lib/crypto/plans'
@@ -379,82 +383,128 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Solution / Features Section */}
+      {/* Platform Tools Section */}
       <section id="features" className="py-24 relative">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[200px]" />
 
         <div className="max-w-7xl mx-auto px-6 relative">
+          {/* Enterprise section label + heading */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="text-center max-w-3xl mx-auto mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Invisible changes.{' '}
-              <span className="gradient-text">Visible results.</span>
+            <p className="text-sm font-semibold text-primary mb-3 tracking-wide uppercase">
+              The Creator Toolkit
+            </p>
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">
+              One platform.{' '}
+              <span className="gradient-text">Every tool you need.</span>
             </h2>
             <p className="text-lg text-muted-foreground">
-              Our AI makes micro-adjustments that are imperceptible to viewers
-              but completely unique to platform algorithms.
+              Four powerful tools to uniquify, caption, swap, and multiply your content — all from one dashboard.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Tier 1: Product cards — 2x2 grid */}
+          <div className="grid md:grid-cols-2 gap-5 mb-8">
             {[
               {
-                icon: Layers,
-                title: 'Metadata Stripping',
+                icon: Video,
+                title: 'Video Uniquification',
+                tag: 'Cleaner Pro v1.0',
                 description:
-                  'Remove all EXIF data, randomize timestamps, and change encoder signatures.',
+                  'Turn one video into up to 100 unique variants. Invisible micro-adjustments to visuals, audio, and metadata that bypass every platform detection algorithm.',
+                color: 'from-primary/20 to-primary/5',
+                borderHover: 'hover:border-primary/60',
+                tagColor: 'bg-primary/10 text-primary',
+                iconColor: 'text-primary',
               },
               {
-                icon: Wand2,
-                title: 'Visual Micro-Changes',
+                icon: Type,
+                title: 'AI Photo Captions',
+                tag: 'Caption Ultimate v1.0',
                 description:
-                  'Subtle brightness, saturation, hue, and crop adjustments invisible to the eye.',
+                  'Generate branded captions for photos using AI — niche-aware or image-analyzed. Render text overlays, apply augmentations, and export in bulk.',
+                color: 'from-cyan-500/20 to-cyan-500/5',
+                borderHover: 'hover:border-cyan-500/60',
+                tagColor: 'bg-cyan-500/10 text-cyan-400',
+                iconColor: 'text-cyan-400',
               },
               {
-                icon: Zap,
-                title: 'Audio Variations',
+                icon: Users,
+                title: 'Face Swap',
+                tag: 'Photos & Videos',
                 description:
-                  'Slight pitch and tempo changes that maintain quality while creating uniqueness.',
+                  'Swap faces in photos and videos with AI precision. Create UGC-style variations at scale using reusable face profiles with one-click enhancement.',
+                color: 'from-violet-500/20 to-violet-500/5',
+                borderHover: 'hover:border-violet-500/60',
+                tagColor: 'bg-violet-500/10 text-violet-400',
+                iconColor: 'text-violet-400',
               },
               {
-                icon: Shield,
-                title: 'AI Watermark Removal',
+                icon: Copy,
+                title: 'Carousel Multiply',
+                tag: 'Bulk Variations',
                 description:
-                  'Automatically detect and remove watermarks using advanced inpainting.',
+                  'Take one finished carousel set and multiply it into dozens of uniquified copies. Each copy is visually distinct — ready for different accounts and ad sets.',
+                color: 'from-amber-500/20 to-amber-500/5',
+                borderHover: 'hover:border-amber-500/60',
+                tagColor: 'bg-amber-500/10 text-amber-400',
+                iconColor: 'text-amber-400',
               },
-              {
-                icon: Clock,
-                title: 'Batch Processing',
-                description:
-                  'Generate up to 100 unique variants from a single upload in seconds.',
-              },
-              {
-                icon: Download,
-                title: 'One-Click Download',
-                description:
-                  'Get all your variants in a single ZIP file, ready to upload.',
-              },
-            ].map((feature, i) => (
+            ].map((tool, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="group p-6 rounded-2xl border border-border/50 bg-card/50 hover:border-primary/50 transition-colors"
+                className={`group relative p-7 rounded-2xl border border-border/50 bg-gradient-to-br ${tool.color} backdrop-blur-sm ${tool.borderHover} transition-all duration-300`}
               >
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <feature.icon className="w-6 h-6 text-primary" />
+                <div className="flex items-start justify-between mb-5">
+                  <div className="w-14 h-14 rounded-xl bg-card/80 border border-border/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <tool.icon className={`w-7 h-7 ${tool.iconColor}`} />
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide ${tool.tagColor}`}>
+                    {tool.tag}
+                  </span>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
+                <h3 className="text-xl font-bold mb-2">{tool.title}</h3>
+                <p className="text-[15px] text-muted-foreground leading-relaxed">{tool.description}</p>
               </motion.div>
             ))}
           </div>
+
+          {/* Tier 2: Supporting features — 4-column strip */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+          >
+            {[
+              { icon: Shield, label: 'Metadata Stripping', desc: 'Remove EXIF, randomize signatures' },
+              { icon: Wand2, label: 'AI Watermark Removal', desc: 'Advanced inpainting detection' },
+              { icon: Zap, label: 'Batch Processing', desc: 'Up to 100 variants per upload' },
+              { icon: Download, label: 'One-Click Download', desc: 'Everything in a single ZIP' },
+            ].map((feat, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 p-4 rounded-xl border border-border/30 bg-card/30"
+              >
+                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <feat.icon className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{feat.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{feat.desc}</p>
+                </div>
+              </div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
