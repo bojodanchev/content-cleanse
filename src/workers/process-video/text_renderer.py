@@ -8,8 +8,34 @@ Renders caption text on images with TikTok-style formatting:
 - UPPERCASE, word-wrapped to 90% of image width
 """
 
+import re
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
+
+
+# Pattern to match emojis and other symbols that most display fonts can't render
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F600-\U0001F64F"  # emoticons
+    "\U0001F300-\U0001F5FF"  # symbols & pictographs
+    "\U0001F680-\U0001F6FF"  # transport & map
+    "\U0001F1E0-\U0001F1FF"  # flags
+    "\U00002702-\U000027B0"  # dingbats
+    "\U0001F900-\U0001F9FF"  # supplemental symbols
+    "\U0001FA00-\U0001FA6F"  # chess symbols
+    "\U0001FA70-\U0001FAFF"  # symbols extended-A
+    "\U00002600-\U000026FF"  # misc symbols
+    "\U0000FE00-\U0000FE0F"  # variation selectors
+    "\U0000200D"             # zero-width joiner
+    "\U0000200B-\U0000200F"  # zero-width spaces
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+def strip_emojis(text: str) -> str:
+    """Remove emoji characters that the display font can't render."""
+    return _EMOJI_RE.sub("", text).strip()
 
 TARGET_WIDTH = 1080
 TARGET_HEIGHT = 1920
@@ -92,7 +118,8 @@ def render_caption(
     font = ImageFont.truetype(font_path, px_size)
 
     max_text_width = int(TARGET_WIDTH * 0.9)
-    lines = wrap_text(caption.upper(), font, max_text_width)
+    clean_caption = strip_emojis(caption.upper())
+    lines = wrap_text(clean_caption, font, max_text_width)
 
     # Calculate total text block height
     line_heights = []
