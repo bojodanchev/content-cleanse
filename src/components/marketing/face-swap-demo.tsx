@@ -16,7 +16,7 @@ export default function FaceSwapDemo({ beforeSrc, afterSrc }: FaceSwapDemoProps)
   const containerRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(containerRef, { once: true })
 
-  const clamp = (value: number) => Math.min(95, Math.max(5, value))
+  const clamp = (value: number) => Math.min(100, Math.max(0, value))
 
   const getPositionFromEvent = useCallback(
     (clientX: number) => {
