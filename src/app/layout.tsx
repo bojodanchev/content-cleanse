@@ -13,30 +13,44 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Creator Engine - Video Uniquification Platform',
+  metadataBase: new URL('https://creatorengine.app'),
+  title: 'Creator Engine - Content Uniquification Platform',
   description:
-    'Transform your videos into unique variants that bypass duplicate content detection. AI-powered watermark removal and batch processing.',
+    'Turn one video into 100 unique variants. AI captions, face swap, carousel multiply — all from one platform. Stop getting flagged for duplicate content.',
   keywords: [
     'video uniquification',
     'creator engine',
     'video variants',
     'watermark removal',
-    'OFM',
+    'face swap',
+    'AI captions',
+    'carousel multiply',
     'content management',
   ],
   authors: [{ name: 'Creator Engine' }],
   openGraph: {
-    title: 'Creator Engine - Video Uniquification Platform',
+    title: 'Creator Engine - Content Uniquification Platform',
     description:
-      'Turn one video into 100 unique variants. Stop getting flagged for duplicate content.',
+      'Turn one video into 100 unique variants. Captions. Face Swap. Carousel Multiply. All from one dashboard.',
     type: 'website',
     locale: 'en_US',
     siteName: 'Creator Engine',
+    url: 'https://creatorengine.app',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Creator Engine - Content Uniquification Platform',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Creator Engine',
-    description: 'Turn one video into 100 unique variants.',
+    title: 'Creator Engine - Content Uniquification Platform',
+    description:
+      'Turn one video into 100 unique variants. Captions. Face Swap. Carousel Multiply.',
+    images: ['/og-image.png'],
   },
   robots: {
     index: true,
