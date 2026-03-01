@@ -211,7 +211,7 @@ export default function LandingPage() {
               className="text-5xl md:text-7xl font-bold tracking-tight mb-6"
             >
               Turn one video or photo into{' '}
-              <span className="gradient-text">thousands of unique</span> variants
+              <span className="gradient-text">10, 100 or 1,000 unique</span> variants
             </motion.h1>
 
             {/* Subheadline */}
@@ -220,7 +220,7 @@ export default function LandingPage() {
               className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto"
             >
               Stop getting flagged for duplicate content. Our AI transforms your
-              videos and photos with invisible changes that bypass platform detection.
+              videos and photos with invisible changes that bypass every platform detection algorithm.
             </motion.p>
 
             {/* CTA */}
@@ -295,7 +295,7 @@ export default function LandingPage() {
             {[
               { icon: Zap, label: '<10s avg processing', color: 'text-primary' },
               { icon: Shield, label: '98.3% detection bypass', color: 'text-accent' },
-              { icon: Layers, label: 'Unlimited variants', color: 'text-primary' },
+              { icon: Layers, label: '10, 100 or 1,000 variants', color: 'text-primary' },
             ].map((stat, i) => (
               <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                 <stat.icon className={`w-4 h-4 ${stat.color}`} />
@@ -426,7 +426,7 @@ export default function LandingPage() {
                 title: 'Video & Photo Uniquification',
                 tag: 'Cleaner Pro v1.0',
                 description:
-                  'Turn one video or photo into thousands of unique variants. Invisible micro-adjustments to visuals, audio, and metadata that bypass every platform detection algorithm.',
+                  'Turn one video or photo into 10, 100 or 1,000 unique variants. Invisible micro-adjustments to visuals, audio, and metadata that bypass every platform detection algorithm.',
                 color: 'from-primary/20 to-primary/5',
                 borderHover: 'hover:border-primary/60',
                 tagColor: 'bg-primary/10 text-primary',
@@ -437,7 +437,7 @@ export default function LandingPage() {
                 title: 'Photo & Video Captions',
                 tag: 'Caption Ultimate v1.0',
                 description:
-                  'Add captions to your photos manually or generate them with AI — niche-aware or image-analyzed. Render text overlays, apply augmentations, and export in bulk.',
+                  'Add captions to your photos and videos manually or generate them with AI. Niche-aware or image-analyzed text, rendered overlays, augmented variants, and bulk export.',
                 color: 'from-cyan-500/20 to-cyan-500/5',
                 borderHover: 'hover:border-cyan-500/60',
                 tagColor: 'bg-cyan-500/10 text-cyan-400',
@@ -581,7 +581,7 @@ export default function LandingPage() {
                 step: '02',
                 title: 'Configure',
                 description:
-                  'Choose how many variants you need, add captions, or enable watermark removal.',
+                  'Choose how many variants you need, add captions, swap faces, or enable watermark removal.',
               },
               {
                 step: '03',
@@ -724,7 +724,7 @@ export default function LandingPage() {
             {[
               {
                 q: 'How does Creator Engine make content unique?',
-                a: 'We apply micro-adjustments to brightness, saturation, hue, crop, and metadata that are imperceptible to humans but completely change the digital fingerprint of your video or photo.',
+                a: 'We apply micro-adjustments to brightness, saturation, hue, crop, and metadata that are imperceptible to humans but completely change the digital fingerprint. Works on videos, photos, and carousels.',
               },
               {
                 q: 'Will this get my accounts banned?',
