@@ -9,11 +9,12 @@ import { PLANS } from '@/lib/crypto/plans'
 import { getClient } from '@/lib/supabase/client'
 
 const comparisonFeatures = [
-  { name: 'Videos per month', free: '5', pro: '100', agency: 'Unlimited' },
-  { name: 'Variants per video', free: '10', pro: '100', agency: '100' },
+  { name: 'Projects per month', free: '5', pro: '100', agency: 'Unlimited' },
+  { name: 'Variants per project', free: '10', pro: 'Unlimited', agency: 'Unlimited' },
   { name: 'Face swaps per month', free: '2', pro: '50', agency: 'Unlimited' },
+  { name: 'Manual & AI captions', free: true, pro: true, agency: true },
+  { name: 'Photo & video cleaning', free: true, pro: true, agency: true },
   { name: 'Metadata stripping', free: true, pro: true, agency: true },
-  { name: 'Visual & audio micro-changes', free: true, pro: true, agency: true },
   { name: 'AI watermark removal', free: false, pro: true, agency: true },
   { name: 'Custom watermark overlay', free: false, pro: true, agency: true },
   { name: 'Email support', free: false, pro: true, agency: true },

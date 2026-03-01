@@ -24,6 +24,7 @@ src/
 │       ├── jobs/             # create, process-*, process-multiply
 │       ├── captions/         # AI generation
 │       ├── faces/            # Face CRUD
+│       ├── admin/            # Admin panel (stats, users, financial-stats, payments, revenue-by-user)
 │       ├── checkout/         # NOWPayments invoice creation
 │       └── webhooks/         # NOWPayments IPN
 ├── components/
@@ -61,6 +62,12 @@ src/
 | `api_usage` | API usage tracking (Agency plan) |
 
 **Migrations**: 001–013 in `supabase/migrations/`
+
+## Admin Panel
+- **Route**: `/admin` (password-gated, uses `verifyAdminSession` + `createServiceClient`)
+- **Tabs**: Users (stats, table, edit modal) | Financials (revenue metrics, payments table, revenue-by-user)
+- **API pattern**: All admin routes follow same structure — `verifyAdminSession()` guard, service client, Promise.all for parallel queries
+- **No joins**: Two-step approach — query primary table, then batch-fetch profiles by user IDs for email enrichment
 
 ## Key Patterns
 - **Job lifecycle**: Create job (API) → Trigger processing (API → Modal) → Progress via Realtime → Download ZIP

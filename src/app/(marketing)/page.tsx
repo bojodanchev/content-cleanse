@@ -200,8 +200,8 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="text-5xl md:text-7xl font-bold tracking-tight mb-6"
             >
-              Turn one video into{' '}
-              <span className="gradient-text">100 unique</span> variants
+              Turn one video or photo into{' '}
+              <span className="gradient-text">thousands of unique</span> variants
             </motion.h1>
 
             {/* Subheadline */}
@@ -210,7 +210,7 @@ export default function LandingPage() {
               className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto"
             >
               Stop getting flagged for duplicate content. Our AI transforms your
-              videos with invisible changes that bypass platform detection.
+              videos and photos with invisible changes that bypass platform detection.
             </motion.p>
 
             {/* CTA */}
@@ -242,7 +242,7 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="text-sm text-muted-foreground"
             >
-              No signup fee • Pay with crypto • 5 free videos per month
+              No signup fee • Pay with crypto • 5 free projects per month
             </motion.p>
           </motion.div>
 
@@ -285,7 +285,7 @@ export default function LandingPage() {
             {[
               { icon: Zap, label: '<10s avg processing', color: 'text-primary' },
               { icon: Shield, label: '98.3% detection bypass', color: 'text-accent' },
-              { icon: Layers, label: 'Up to 100 variants', color: 'text-primary' },
+              { icon: Layers, label: 'Unlimited variants', color: 'text-primary' },
             ].map((stat, i) => (
               <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                 <stat.icon className={`w-4 h-4 ${stat.color}`} />
@@ -304,7 +304,7 @@ export default function LandingPage() {
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: '800+', label: 'Videos processed' },
+              { value: '800+', label: 'Files processed' },
               { value: '25+', label: 'Active agencies' },
               { value: '98.3%', label: 'Detection bypass' },
               { value: '<10s', label: 'Processing time' },
@@ -357,7 +357,7 @@ export default function LandingPage() {
               {
                 title: 'Wasted Time',
                 description:
-                  'Manually editing each video takes hours. Time you could spend growing your business.',
+                  'Manually editing each video or photo takes hours. Time you could spend growing your business.',
                 icon: '⏰',
               },
               {
@@ -413,10 +413,10 @@ export default function LandingPage() {
             {[
               {
                 icon: Video,
-                title: 'Video Uniquification',
+                title: 'Video & Photo Uniquification',
                 tag: 'Cleaner Pro v1.0',
                 description:
-                  'Turn one video into up to 100 unique variants. Invisible micro-adjustments to visuals, audio, and metadata that bypass every platform detection algorithm.',
+                  'Turn one video or photo into thousands of unique variants. Invisible micro-adjustments to visuals, audio, and metadata that bypass every platform detection algorithm.',
                 color: 'from-primary/20 to-primary/5',
                 borderHover: 'hover:border-primary/60',
                 tagColor: 'bg-primary/10 text-primary',
@@ -424,10 +424,10 @@ export default function LandingPage() {
               },
               {
                 icon: Type,
-                title: 'AI Photo Captions',
+                title: 'Photo & Video Captions',
                 tag: 'Caption Ultimate v1.0',
                 description:
-                  'Generate branded captions for photos using AI — niche-aware or image-analyzed. Render text overlays, apply augmentations, and export in bulk.',
+                  'Add captions to your photos manually or generate them with AI — niche-aware or image-analyzed. Render text overlays, apply augmentations, and export in bulk.',
                 color: 'from-cyan-500/20 to-cyan-500/5',
                 borderHover: 'hover:border-cyan-500/60',
                 tagColor: 'bg-cyan-500/10 text-cyan-400',
@@ -519,7 +519,7 @@ export default function LandingPage() {
             {[
               { icon: Shield, label: 'Metadata Stripping', desc: 'Remove EXIF, randomize signatures' },
               { icon: Wand2, label: 'AI Watermark Removal', desc: 'Advanced inpainting detection' },
-              { icon: Zap, label: 'Batch Processing', desc: 'Up to 100 variants per upload' },
+              { icon: Zap, label: 'Batch Processing', desc: 'Unlimited variants per upload' },
               { icon: Download, label: 'One-Click Download', desc: 'Everything in a single ZIP' },
             ].map((feat, i) => (
               <div
@@ -562,13 +562,13 @@ export default function LandingPage() {
                 step: '01',
                 title: 'Upload',
                 description:
-                  'Drag and drop your video. We support all major formats up to 50MB.',
+                  'Drag and drop your video or photo. We support all major formats up to 50MB.',
               },
               {
                 step: '02',
                 title: 'Configure',
                 description:
-                  'Choose how many variants you need and enable watermark removal if needed.',
+                  'Choose how many variants you need, add captions, or enable watermark removal.',
               },
               {
                 step: '03',
@@ -710,8 +710,8 @@ export default function LandingPage() {
           <div className="space-y-4">
             {[
               {
-                q: 'How does Creator Engine make videos unique?',
-                a: 'We apply micro-adjustments to brightness, saturation, hue, audio pitch, and crop that are imperceptible to humans but completely change the digital fingerprint of your video.',
+                q: 'How does Creator Engine make content unique?',
+                a: 'We apply micro-adjustments to brightness, saturation, hue, crop, and metadata that are imperceptible to humans but completely change the digital fingerprint of your video or photo.',
               },
               {
                 q: 'Will this get my accounts banned?',
@@ -719,11 +719,11 @@ export default function LandingPage() {
               },
               {
                 q: 'What formats do you support?',
-                a: 'We support all major video formats including MP4, MOV, AVI, and WebM. Maximum file size is 500MB.',
+                a: 'We support all major video formats (MP4, MOV, AVI, WebM) and image formats (JPG, PNG, WebP). Maximum file size is 50MB.',
               },
               {
                 q: 'How fast is processing?',
-                a: 'Most videos are processed in under 3 seconds per variant. A batch of 100 variants typically completes in under 5 minutes.',
+                a: 'Most videos are processed in under 3 seconds per variant. Large batches typically complete in minutes.',
               },
               {
                 q: 'How does billing work?',
@@ -778,7 +778,7 @@ export default function LandingPage() {
               </Button>
             </Link>
             <p className="text-sm text-muted-foreground mt-4">
-              No signup fee • Pay with crypto • 5 free videos per month
+              No signup fee • Pay with crypto • 5 free projects per month
             </p>
           </motion.div>
         </div>

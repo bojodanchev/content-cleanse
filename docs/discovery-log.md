@@ -2,6 +2,17 @@
 
 Reverse-chronological. Most recent first.
 
+## [2026-03-01] Admin Financials tab — revenue metrics, payments table, revenue-by-user
+**Context**: Admin panel only had user management. Added a Financials tab for payment visibility.
+**Learnings**:
+- Admin API routes follow a consistent pattern: `verifyAdminSession` + `createServiceClient` + try/catch
+- Supabase doesn't support joins in JS client — use two-step approach: query payments, then batch-fetch profiles by user IDs
+- `payments.amount` is `numeric` type — must use `Number(p.amount)` when summing in JS
+- Tab system: `activeTab` state with conditional rendering, pink underline indicator via absolute-positioned span
+- Lazy data fetching: financials data only loads on first tab switch, revenue-by-user only on expand click
+- Revenue-by-user grouping done in JS with `Map<string, { totalPaid, paymentCount }>` — simpler than SQL GROUP BY with the two-step profile join pattern
+**Files touched**: 3 new API routes (`financial-stats`, `payments`, `revenue-by-user`), `admin/page.tsx` modified
+
 ## [2026-02-22] Landing page polish — demo videos, ToS/Privacy, pricing cleanup
 **Context**: Marketing page improvements for conversion optimization
 **Learnings**:

@@ -16,14 +16,18 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://creatorengine.app'),
   title: 'Creator Engine - Content Uniquification Platform',
   description:
-    'Turn one video into 100 unique variants. AI captions, face swap, carousel multiply — all from one platform. Stop getting flagged for duplicate content.',
+    'Turn one video or photo into thousands of unique variants. Manual & AI captions, face swap, photo cleaning, carousel multiply — all from one platform. Stop getting flagged for duplicate content.',
   keywords: [
     'video uniquification',
+    'photo uniquification',
     'creator engine',
     'video variants',
+    'photo variants',
     'watermark removal',
     'face swap',
     'AI captions',
+    'manual captions',
+    'photo cleaning',
     'carousel multiply',
     'content management',
   ],
@@ -31,7 +35,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Creator Engine - Content Uniquification Platform',
     description:
-      'Turn one video into 100 unique variants. Captions. Face Swap. Carousel Multiply. All from one dashboard.',
+      'Turn one video or photo into thousands of unique variants. Captions. Face Swap. Photo Cleaning. Carousel Multiply. All from one dashboard.',
     type: 'website',
     locale: 'en_US',
     siteName: 'Creator Engine',
@@ -49,7 +53,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Creator Engine - Content Uniquification Platform',
     description:
-      'Turn one video into 100 unique variants. Captions. Face Swap. Carousel Multiply.',
+      'Turn one video or photo into thousands of unique variants. Captions. Face Swap. Photo Cleaning. Carousel Multiply.',
     images: ['/og-image.png'],
   },
   robots: {
