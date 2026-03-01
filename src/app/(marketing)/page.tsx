@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PLANS } from '@/lib/crypto/plans'
+import FaceSwapDemo from '@/components/marketing/face-swap-demo'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -407,8 +408,8 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          {/* Tier 1: Product cards — 2x2 grid */}
-          <div className="grid md:grid-cols-2 gap-5 mb-8">
+          {/* Tier 1: Product cards — 3-column grid */}
+          <div className="grid md:grid-cols-3 gap-5 mb-5">
             {[
               {
                 icon: Video,
@@ -431,17 +432,6 @@ export default function LandingPage() {
                 borderHover: 'hover:border-cyan-500/60',
                 tagColor: 'bg-cyan-500/10 text-cyan-400',
                 iconColor: 'text-cyan-400',
-              },
-              {
-                icon: Users,
-                title: 'Face Swap',
-                tag: 'Photos & Videos',
-                description:
-                  'Swap faces in photos and videos with AI precision. Create UGC-style variations at scale using reusable face profiles with one-click enhancement.',
-                color: 'from-violet-500/20 to-violet-500/5',
-                borderHover: 'hover:border-violet-500/60',
-                tagColor: 'bg-violet-500/10 text-violet-400',
-                iconColor: 'text-violet-400',
               },
               {
                 icon: Copy,
@@ -476,6 +466,47 @@ export default function LandingPage() {
               </motion.div>
             ))}
           </div>
+
+          {/* Face Swap — full-width interactive showcase */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="group rounded-2xl border border-border/50 bg-gradient-to-br from-violet-500/20 to-violet-500/5 backdrop-blur-sm hover:border-violet-500/60 transition-all duration-300 mb-8 overflow-hidden"
+          >
+            <div className="grid md:grid-cols-[45%_55%] gap-0">
+              {/* Left — text content */}
+              <div className="p-7 md:p-10 flex flex-col justify-center">
+                <div className="flex items-start justify-between mb-5">
+                  <div className="w-14 h-14 rounded-xl bg-card/80 border border-border/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="w-7 h-7 text-violet-400" />
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-violet-500/10 text-violet-400">
+                    Photos & Videos
+                  </span>
+                </div>
+                <h3 className="text-2xl md:text-3xl font-bold mb-3">Face Swap</h3>
+                <p className="text-[15px] text-muted-foreground leading-relaxed mb-6">
+                  Swap faces in photos and videos with AI precision. Create UGC-style variations at scale using reusable face profiles with one-click enhancement.
+                </p>
+                <Link href="/faceswap">
+                  <Button className="bg-violet-600 hover:bg-violet-500 text-white group/btn w-fit">
+                    Try Face Swap
+                    <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Right — interactive slider */}
+              <div className="p-4 md:p-6 md:pl-0">
+                <FaceSwapDemo
+                  beforeSrc="/demo/faceswap-before.jpg"
+                  afterSrc="/demo/faceswap-after.jpg"
+                />
+              </div>
+            </div>
+          </motion.div>
 
           {/* Tier 2: Supporting features — 4-column strip */}
           <motion.div
