@@ -252,6 +252,16 @@
     0% { opacity: 0.8; r: 4; }
     100% { opacity: 0; r: 16; }
   }
+
+  /* Testimonials marquee */
+  @keyframes marquee-left {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(calc(-100% - 20px)); }
+  }
+  @keyframes marquee-right {
+    0% { transform: translateX(calc(-100% - 20px)); }
+    100% { transform: translateX(0); }
+  }
 }
 
 /* Selection styling */

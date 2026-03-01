@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { PLANS } from '@/lib/crypto/plans'
 import FaceSwapDemo from '@/components/marketing/face-swap-demo'
+import TestimonialsMarquee from '@/components/marketing/testimonials-marquee'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -538,6 +539,9 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </section>
+
+      {/* Testimonials */}
+      <TestimonialsMarquee />
 
       {/* How It Works */}
       <section id="how-it-works" className="py-24 bg-card/30">
