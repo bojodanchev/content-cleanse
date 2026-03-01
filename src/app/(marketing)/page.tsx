@@ -40,15 +40,24 @@ const stagger = {
 
 function DemoShowcase() {
   const [activeVariant, setActiveVariant] = useState(0)
+  const [playingVariant, setPlayingVariant] = useState(-1)
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const playVariant = useCallback((index: number) => {
     // Pause all variant videos
     videoRefs.current.forEach((v) => { if (v) { v.pause(); v.currentTime = 0 } })
+    setPlayingVariant(-1)
     // Play the active one
     const vid = videoRefs.current[index]
-    if (vid) { vid.play().catch(() => {}) }
+    if (vid) {
+      const onPlaying = () => {
+        setPlayingVariant(index)
+        vid.removeEventListener('playing', onPlaying)
+      }
+      vid.addEventListener('playing', onPlaying)
+      vid.play().catch(() => {})
+    }
     setActiveVariant(index)
   }, [])
 
@@ -135,12 +144,12 @@ function DemoShowcase() {
                   : 'border border-border/30 opacity-70 hover:opacity-100'
               }`}
             >
-              {/* Poster image (always visible) */}
+              {/* Poster image — only hide once video is actually playing */}
               <img
                 src={`/demo/variant_00${i + 1}_poster.jpg`}
                 alt={`Variant ${i + 1}`}
                 className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-300 ${
-                  activeVariant === i ? 'opacity-0' : 'opacity-100'
+                  playingVariant === i ? 'opacity-0' : 'opacity-100'
                 }`}
               />
               {/* Video (only plays when active) */}
