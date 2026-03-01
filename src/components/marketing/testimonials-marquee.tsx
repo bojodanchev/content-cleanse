@@ -4,7 +4,7 @@ import { topRow, bottomRow, type Testimonial } from '@/data/testimonials'
 
 function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   return (
-    <div className="w-[300px] md:w-[380px] shrink-0 rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm p-5 md:p-6">
+    <div className="w-[300px] md:w-[380px] shrink-0 rounded-xl border border-border/50 bg-card p-5 md:p-6">
       <p className="text-sm text-muted-foreground leading-relaxed mb-5">
         <span className="text-2xl text-primary/60 font-serif leading-none mr-1">&ldquo;</span>
         {testimonial.quote}
@@ -38,13 +38,13 @@ function MarqueeRow({
       : 'animate-[marquee-right_30s_linear_infinite] md:animate-[marquee-right_40s_linear_infinite]'
 
   return (
-    <div className="group flex gap-5 hover:[animation-play-state:paused] *:hover:[animation-play-state:paused]">
-      <div className={`flex gap-5 shrink-0 ${animationClass}`}>
+    <div className="group flex gap-5">
+      <div className={`flex gap-5 shrink-0 group-hover:[animation-play-state:paused] ${animationClass}`}>
         {testimonials.map((t, i) => (
           <TestimonialCard key={i} testimonial={t} />
         ))}
       </div>
-      <div className={`flex gap-5 shrink-0 ${animationClass}`} aria-hidden>
+      <div className={`flex gap-5 shrink-0 group-hover:[animation-play-state:paused] ${animationClass}`} aria-hidden>
         {testimonials.map((t, i) => (
           <TestimonialCard key={`dup-${i}`} testimonial={t} />
         ))}
