@@ -491,3 +491,31 @@ export type CommissionInsert = Database['public']['Tables']['commissions']['Inse
 
 export type Face = Database['public']['Tables']['faces']['Row']
 export type FaceInsert = Database['public']['Tables']['faces']['Insert']
+
+// Support tickets
+export type TicketCategory = 'billing' | 'processing' | 'bug' | 'feature_request' | 'account' | 'other'
+
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+
+export type TicketPriority = 'low' | 'medium' | 'high'
+
+export interface SupportTicket {
+  id: string
+  user_id: string
+  subject: string
+  category: TicketCategory
+  status: TicketStatus
+  priority: TicketPriority | null
+  created_at: string
+  updated_at: string
+  resolved_at: string | null
+}
+
+export interface TicketMessage {
+  id: string
+  ticket_id: string
+  user_id: string
+  is_admin: boolean
+  message: string
+  created_at: string
+}
