@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { PLANS } from '@/lib/crypto/plans'
 import FaceSwapDemo from '@/components/marketing/face-swap-demo'
+import CaptionsDemo from '@/components/marketing/captions-demo'
 import TestimonialsMarquee from '@/components/marketing/testimonials-marquee'
 
 const fadeInUp = {
@@ -184,6 +185,13 @@ function DemoShowcase() {
     </div>
   )
 }
+
+const CAPTION_DEMO_SLIDES = [
+  { src: '/demo/caption-slide-1.jpg', caption: 'Heyy' },
+  { src: '/demo/caption-slide-2.jpg', caption: 'Did you' },
+  { src: '/demo/caption-slide-3.jpg', caption: 'See our' },
+  { src: '/demo/caption-slide-4.jpg', caption: 'Latest feature' },
+]
 
 export default function LandingPage() {
   return (
@@ -418,8 +426,8 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          {/* Tier 1: Product cards — 3-column grid */}
-          <div className="grid md:grid-cols-3 gap-5 mb-5">
+          {/* Tier 1: Product cards — 2-column grid */}
+          <div className="grid md:grid-cols-2 gap-5 mb-5">
             {[
               {
                 icon: Video,
@@ -431,17 +439,6 @@ export default function LandingPage() {
                 borderHover: 'hover:border-primary/60',
                 tagColor: 'bg-primary/10 text-primary',
                 iconColor: 'text-primary',
-              },
-              {
-                icon: Type,
-                title: 'Photo & Video Captions',
-                tag: 'Caption Ultimate v1.0',
-                description:
-                  'Add captions to your photos and videos manually or generate them with AI. Niche-aware or image-analyzed text, rendered overlays, augmented variants, and bulk export.',
-                color: 'from-cyan-500/20 to-cyan-500/5',
-                borderHover: 'hover:border-cyan-500/60',
-                tagColor: 'bg-cyan-500/10 text-cyan-400',
-                iconColor: 'text-cyan-400',
               },
               {
                 icon: Copy,
@@ -476,6 +473,44 @@ export default function LandingPage() {
               </motion.div>
             ))}
           </div>
+
+          {/* Captions — full-width interactive showcase */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="group rounded-2xl border border-border/50 bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 backdrop-blur-sm hover:border-cyan-500/60 transition-all duration-300 mb-5 overflow-hidden"
+          >
+            <div className="grid md:grid-cols-[45%_55%] gap-0">
+              {/* Left — text content */}
+              <div className="p-7 md:p-10 flex flex-col justify-center">
+                <div className="flex items-start justify-between mb-5">
+                  <div className="w-14 h-14 rounded-xl bg-card/80 border border-border/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Type className="w-7 h-7 text-cyan-400" />
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-cyan-500/10 text-cyan-400">
+                    Caption Ultimate v1.0
+                  </span>
+                </div>
+                <h3 className="text-2xl md:text-3xl font-bold mb-3">Photo & Video Captions</h3>
+                <p className="text-[15px] text-muted-foreground leading-relaxed mb-6">
+                  Add captions to your photos and videos manually or generate them with AI. Niche-aware or image-analyzed text, rendered overlays, augmented variants, and bulk export.
+                </p>
+                <Link href="/captions">
+                  <Button className="bg-cyan-600 hover:bg-cyan-500 text-white group/btn w-fit">
+                    Try Captions
+                    <ArrowRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Right — Instagram phone demo */}
+              <div className="p-4 md:p-6 md:pl-0 flex items-center justify-center">
+                <CaptionsDemo slides={CAPTION_DEMO_SLIDES} />
+              </div>
+            </div>
+          </motion.div>
 
           {/* Face Swap — full-width interactive showcase */}
           <motion.div
