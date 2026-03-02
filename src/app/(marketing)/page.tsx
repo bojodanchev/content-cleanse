@@ -245,6 +245,7 @@ export default function LandingPage() {
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
+              {/* TODO: Uncomment when demo video is ready
               <Button
                 variant="outline"
                 size="lg"
@@ -253,6 +254,7 @@ export default function LandingPage() {
                 <Play className="w-5 h-5 mr-2" />
                 Watch Demo
               </Button>
+              */}
             </motion.div>
 
             {/* Microcopy */}
