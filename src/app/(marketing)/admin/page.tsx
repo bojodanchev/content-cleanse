@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface Stats {
@@ -71,6 +71,46 @@ interface RevenueByUser {
   planExpiresAt: string | null
 }
 
+interface AdminTicketRow {
+  id: string
+  user_id: string
+  user_email: string | null
+  user_plan: string | null
+  user_created_at: string | null
+  subject: string
+  category: string
+  status: string
+  priority: string | null
+  created_at: string
+  updated_at: string
+  resolved_at: string | null
+  last_message_at: string
+}
+
+interface AdminTicketsResponse {
+  tickets: AdminTicketRow[]
+  total: number
+  page: number
+  totalPages: number
+  stats: { open: number; in_progress: number; resolved: number }
+}
+
+interface AdminTicketMessage {
+  id: string
+  ticket_id: string
+  user_id: string
+  is_admin: boolean
+  message: string
+  created_at: string
+}
+
+interface AdminTicketDetail {
+  ticket: AdminTicketRow & {
+    user_full_name: string | null
+  }
+  messages: AdminTicketMessage[]
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 const planBadgeClass: Record<string, string> = {
   free: 'bg-zinc-700 text-zinc-300',
@@ -83,6 +123,37 @@ const statusBadgeClass: Record<string, string> = {
   pending: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
   failed: 'bg-red-500/20 text-red-400 border border-red-500/30',
   expired: 'bg-zinc-700 text-zinc-300',
+}
+
+const ticketCategoryBadge: Record<string, string> = {
+  billing: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+  processing: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+  bug: 'bg-red-500/20 text-red-400 border border-red-500/30',
+  feature_request: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
+  account: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
+  other: 'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30',
+}
+
+const ticketStatusBadge: Record<string, string> = {
+  open: 'bg-green-500/20 text-green-400 border border-green-500/30',
+  in_progress: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+  resolved: 'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30',
+  closed: 'bg-zinc-700 text-zinc-500',
+}
+
+const ticketPriorityBadge: Record<string, string> = {
+  low: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+  medium: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+  high: 'bg-red-500/20 text-red-400 border border-red-500/30',
+}
+
+const categoryLabels: Record<string, string> = {
+  billing: 'Billing',
+  processing: 'Processing',
+  bug: 'Bug Report',
+  feature_request: 'Feature Request',
+  account: 'Account',
+  other: 'Other',
 }
 
 function formatDate(iso: string | null) {
@@ -107,7 +178,7 @@ export default function AdminPage() {
   const [authLoading, setAuthLoading] = useState(false)
 
   // Tab
-  const [activeTab, setActiveTab] = useState<'users' | 'financials'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'financials' | 'support'>('users')
 
   // Stats
   const [stats, setStats] = useState<Stats | null>(null)
@@ -151,6 +222,24 @@ export default function AdminPage() {
 
   // Track if financials data has been fetched
   const [financialsLoaded, setFinancialsLoaded] = useState(false)
+
+  // Support tickets
+  const [supportTickets, setSupportTickets] = useState<AdminTicketRow[]>([])
+  const [supportTotal, setSupportTotal] = useState(0)
+  const [supportPage, setSupportPage] = useState(1)
+  const [supportStats, setSupportStats] = useState<{ open: number; in_progress: number; resolved: number }>({ open: 0, in_progress: 0, resolved: 0 })
+  const [supportSearch, setSupportSearch] = useState('')
+  const [supportSearchInput, setSupportSearchInput] = useState('')
+  const [supportStatusFilter, setSupportStatusFilter] = useState('all')
+  const [supportCategoryFilter, setSupportCategoryFilter] = useState('all')
+  const [supportPriorityFilter, setSupportPriorityFilter] = useState('all')
+  const [supportLoading, setSupportLoading] = useState(false)
+  const [supportLoaded, setSupportLoaded] = useState(false)
+  const [expandedTicket, setExpandedTicket] = useState<string | null>(null)
+  const [ticketDetail, setTicketDetail] = useState<AdminTicketDetail | null>(null)
+  const [ticketDetailLoading, setTicketDetailLoading] = useState(false)
+  const [adminReplyText, setAdminReplyText] = useState('')
+  const [adminReplySending, setAdminReplySending] = useState(false)
 
   const pageSize = 20
   const paymentsPageSize = 20
@@ -271,6 +360,79 @@ export default function AdminPage() {
     setRevenueByUserLoading(false)
   }, [])
 
+  // ── Fetch support tickets ───────────────────────────────────────
+  const supportPageSize = 20
+  const fetchSupportTickets = useCallback(async () => {
+    setSupportLoading(true)
+    try {
+      const params = new URLSearchParams({ page: String(supportPage), limit: String(supportPageSize) })
+      if (supportSearch) params.set('search', supportSearch)
+      if (supportStatusFilter !== 'all') params.set('status', supportStatusFilter)
+      if (supportCategoryFilter !== 'all') params.set('category', supportCategoryFilter)
+      if (supportPriorityFilter !== 'all') params.set('priority', supportPriorityFilter)
+      const res = await fetch(`/api/admin/support?${params}`)
+      if (res.ok) {
+        const data: AdminTicketsResponse = await res.json()
+        setSupportTickets(data.tickets)
+        setSupportTotal(data.total)
+        setSupportStats(data.stats)
+      }
+    } catch {
+      // silent
+    }
+    setSupportLoading(false)
+  }, [supportPage, supportSearch, supportStatusFilter, supportCategoryFilter, supportPriorityFilter])
+
+  const fetchTicketDetail = useCallback(async (ticketId: string) => {
+    setTicketDetailLoading(true)
+    try {
+      const res = await fetch(`/api/admin/support/${ticketId}`)
+      if (res.ok) {
+        const data: AdminTicketDetail = await res.json()
+        setTicketDetail(data)
+      }
+    } catch {
+      // silent
+    }
+    setTicketDetailLoading(false)
+  }, [])
+
+  const handleAdminReply = async (ticketId: string) => {
+    if (!adminReplyText.trim()) return
+    setAdminReplySending(true)
+    try {
+      const res = await fetch(`/api/admin/support/${ticketId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: adminReplyText.trim() }),
+      })
+      if (res.ok) {
+        setAdminReplyText('')
+        fetchTicketDetail(ticketId)
+        fetchSupportTickets()
+      }
+    } catch {
+      // silent
+    }
+    setAdminReplySending(false)
+  }
+
+  const handleTicketUpdate = async (ticketId: string, updates: { status?: string; priority?: string | null }) => {
+    try {
+      const res = await fetch(`/api/admin/support/${ticketId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (res.ok) {
+        fetchTicketDetail(ticketId)
+        fetchSupportTickets()
+      }
+    } catch {
+      // silent
+    }
+  }
+
   // Load data after auth
   useEffect(() => {
     if (authed) {
@@ -294,6 +456,21 @@ export default function AdminPage() {
       fetchPayments()
     }
   }, [paymentsPage, paymentsSearch, paymentsStatusFilter, paymentsPlanFilter, fetchPayments, financialsLoaded])
+
+  // Load support data when tab switches
+  useEffect(() => {
+    if (authed && activeTab === 'support' && !supportLoaded) {
+      fetchSupportTickets()
+      setSupportLoaded(true)
+    }
+  }, [authed, activeTab, supportLoaded, fetchSupportTickets])
+
+  // Refetch support tickets when filters/page change
+  useEffect(() => {
+    if (supportLoaded) {
+      fetchSupportTickets()
+    }
+  }, [supportPage, supportSearch, supportStatusFilter, supportCategoryFilter, supportPriorityFilter, fetchSupportTickets, supportLoaded])
 
   // Debounced search (users)
   const [searchInput, setSearchInput] = useState('')
@@ -322,6 +499,20 @@ export default function AdminPage() {
   useEffect(() => {
     setPaymentsPage(1)
   }, [paymentsStatusFilter, paymentsPlanFilter])
+
+  // Debounced search (support)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSupportSearch(supportSearchInput)
+      setSupportPage(1)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [supportSearchInput])
+
+  // Reset page when support filters change
+  useEffect(() => {
+    setSupportPage(1)
+  }, [supportStatusFilter, supportCategoryFilter, supportPriorityFilter])
 
   // Expand revenue by user
   const handleExpandRevenue = () => {
@@ -371,6 +562,7 @@ export default function AdminPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const paymentsTotalPages = Math.max(1, Math.ceil(paymentsTotal / paymentsPageSize))
+  const supportTotalPages = Math.max(1, Math.ceil(supportTotal / supportPageSize))
 
   // ── Password gate ────────────────────────────────────────────────
   if (checking) {
@@ -429,7 +621,7 @@ export default function AdminPage() {
 
       {/* ── Tabs ───────────────────────────────────────────────── */}
       <div className="flex gap-1 mb-8 border-b border-zinc-800">
-        {(['users', 'financials'] as const).map((tab) => (
+        {(['users', 'financials', 'support'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -857,6 +1049,307 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        </>
+      )}
+
+      {/* ── Support tab ──────────────────────────────────────────── */}
+      {activeTab === 'support' && (
+        <>
+          {/* Stats cards */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            {[
+              { label: 'Open', value: supportStats.open, color: 'text-green-400' },
+              { label: 'In Progress', value: supportStats.in_progress, color: 'text-yellow-400' },
+              { label: 'Resolved', value: supportStats.resolved, color: 'text-zinc-400' },
+            ].map((card) => (
+              <div
+                key={card.label}
+                className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5"
+              >
+                <div className={`text-3xl font-bold ${card.color}`}>
+                  {supportLoading && !supportLoaded ? (
+                    <span className="inline-block w-8 h-8 rounded bg-zinc-800 animate-pulse" />
+                  ) : (
+                    card.value
+                  )}
+                </div>
+                <div className="text-sm text-zinc-500 mt-1">{card.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+            <input
+              type="text"
+              value={supportSearchInput}
+              onChange={(e) => setSupportSearchInput(e.target.value)}
+              placeholder="Search by email..."
+              className="w-full sm:w-72 px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-colors text-sm"
+            />
+
+            <select
+              value={supportStatusFilter}
+              onChange={(e) => setSupportStatusFilter(e.target.value)}
+              className="px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:outline-none focus:border-pink-500 cursor-pointer"
+            >
+              <option value="all">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+
+            <select
+              value={supportCategoryFilter}
+              onChange={(e) => setSupportCategoryFilter(e.target.value)}
+              className="px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:outline-none focus:border-pink-500 cursor-pointer"
+            >
+              <option value="all">All Categories</option>
+              <option value="billing">Billing</option>
+              <option value="processing">Processing</option>
+              <option value="bug">Bug Report</option>
+              <option value="feature_request">Feature Request</option>
+              <option value="account">Account</option>
+              <option value="other">Other</option>
+            </select>
+
+            <select
+              value={supportPriorityFilter}
+              onChange={(e) => setSupportPriorityFilter(e.target.value)}
+              className="px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:outline-none focus:border-pink-500 cursor-pointer"
+            >
+              <option value="all">All Priorities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+
+            <span className="text-sm text-zinc-500 ml-auto">
+              {supportTotal} ticket{supportTotal !== 1 ? 's' : ''} found
+            </span>
+          </div>
+
+          {/* Tickets table */}
+          <div className="rounded-xl border border-zinc-800 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-zinc-900/80 text-zinc-400 text-left">
+                    <th className="px-4 py-3 font-medium">Email</th>
+                    <th className="px-4 py-3 font-medium">Subject</th>
+                    <th className="px-4 py-3 font-medium">Category</th>
+                    <th className="px-4 py-3 font-medium">Priority</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Created</th>
+                    <th className="px-4 py-3 font-medium">Last Reply</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {supportLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} className="border-t border-zinc-800/60">
+                        {Array.from({ length: 7 }).map((_, j) => (
+                          <td key={j} className="px-4 py-3">
+                            <div className="h-4 w-24 rounded bg-zinc-800 animate-pulse" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : supportTickets.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
+                        No tickets found
+                      </td>
+                    </tr>
+                  ) : (
+                    supportTickets.map((t) => (
+                      <React.Fragment key={t.id}>
+                        <tr
+                          onClick={() => {
+                            if (expandedTicket === t.id) {
+                              setExpandedTicket(null)
+                              setTicketDetail(null)
+                            } else {
+                              setExpandedTicket(t.id)
+                              setAdminReplyText('')
+                              fetchTicketDetail(t.id)
+                            }
+                          }}
+                          className="border-t border-zinc-800/60 hover:bg-zinc-800/30 transition-colors cursor-pointer"
+                        >
+                          <td className="px-4 py-3 text-white font-mono text-xs">
+                            {t.user_email || '\u2014'}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            {t.subject.length > 50 ? t.subject.slice(0, 50) + '...' : t.subject}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${ticketCategoryBadge[t.category] || ticketCategoryBadge.other}`}
+                            >
+                              {categoryLabels[t.category] || t.category}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {t.priority ? (
+                              <span
+                                className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${ticketPriorityBadge[t.priority] || ''}`}
+                              >
+                                {t.priority}
+                              </span>
+                            ) : (
+                              <span className="text-zinc-600 text-xs">{'\u2014'}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${ticketStatusBadge[t.status] || 'bg-zinc-700 text-zinc-300'}`}
+                            >
+                              {t.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-zinc-400 text-xs">
+                            {formatDate(t.created_at)}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-400 text-xs">
+                            {formatDate(t.last_message_at)}
+                          </td>
+                        </tr>
+
+                        {/* Expanded detail */}
+                        {expandedTicket === t.id && (
+                          <tr className="border-t border-zinc-800/60 bg-zinc-900/40">
+                            <td colSpan={7} className="px-4 py-5">
+                              {ticketDetailLoading ? (
+                                <div className="flex items-center gap-2 text-sm text-zinc-500">
+                                  <span className="inline-block w-4 h-4 rounded bg-zinc-800 animate-pulse" />
+                                  Loading ticket details...
+                                </div>
+                              ) : ticketDetail ? (
+                                <div className="space-y-5">
+                                  {/* User info */}
+                                  <div className="flex flex-wrap gap-6 text-sm">
+                                    <div>
+                                      <span className="text-zinc-500">Email:</span>{' '}
+                                      <span className="text-white font-mono text-xs">{ticketDetail.ticket.user_email || '\u2014'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-zinc-500">Plan:</span>{' '}
+                                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium capitalize ${planBadgeClass[ticketDetail.ticket.user_plan || 'free'] || planBadgeClass.free}`}>
+                                        {ticketDetail.ticket.user_plan || 'free'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-zinc-500">Member since:</span>{' '}
+                                      <span className="text-zinc-300 text-xs">{formatDate(ticketDetail.ticket.user_created_at)}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Message thread */}
+                                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                                    {ticketDetail.messages.map((msg) => (
+                                      <div
+                                        key={msg.id}
+                                        className={`rounded-lg p-3 text-sm ${
+                                          msg.is_admin
+                                            ? 'bg-pink-500/10 border border-pink-500/20'
+                                            : 'bg-zinc-800/60 border border-zinc-700/50'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                          <span className={`text-xs font-medium ${msg.is_admin ? 'text-pink-400' : 'text-zinc-400'}`}>
+                                            {msg.is_admin ? 'Admin' : 'User'}
+                                          </span>
+                                          <span className="text-xs text-zinc-600">
+                                            {new Date(msg.created_at).toLocaleString('en-US', {
+                                              month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                                            })}
+                                          </span>
+                                        </div>
+                                        <p className="text-zinc-200 whitespace-pre-wrap">{msg.message}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Admin actions */}
+                                  <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 pt-3 border-t border-zinc-800">
+                                    <div className="flex gap-2">
+                                      <select
+                                        value={ticketDetail.ticket.priority || ''}
+                                        onChange={(e) => handleTicketUpdate(t.id, { priority: e.target.value || null })}
+                                        className="px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-xs focus:outline-none focus:border-pink-500 cursor-pointer"
+                                      >
+                                        <option value="">No Priority</option>
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                      </select>
+
+                                      <select
+                                        value={ticketDetail.ticket.status}
+                                        onChange={(e) => handleTicketUpdate(t.id, { status: e.target.value })}
+                                        className="px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-xs focus:outline-none focus:border-pink-500 cursor-pointer"
+                                      >
+                                        <option value="open">Open</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="resolved">Resolved</option>
+                                        <option value="closed">Closed</option>
+                                      </select>
+                                    </div>
+
+                                    <div className="flex-1 w-full flex gap-2">
+                                      <textarea
+                                        value={adminReplyText}
+                                        onChange={(e) => setAdminReplyText(e.target.value)}
+                                        placeholder="Type admin reply..."
+                                        rows={2}
+                                        className="flex-1 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-colors resize-none"
+                                      />
+                                      <button
+                                        onClick={() => handleAdminReply(t.id)}
+                                        disabled={adminReplySending || !adminReplyText.trim()}
+                                        className="px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors self-end"
+                                      >
+                                        {adminReplySending ? 'Sending...' : 'Send'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Pagination */}
+          {supportTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <button
+                disabled={supportPage <= 1}
+                onClick={() => setSupportPage((p) => Math.max(1, p - 1))}
+                className="px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-zinc-300 hover:border-pink-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-zinc-500">
+                Page {supportPage} of {supportTotalPages}
+              </span>
+              <button
+                disabled={supportPage >= supportTotalPages}
+                onClick={() => setSupportPage((p) => Math.min(supportTotalPages, p + 1))}
+                className="px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-zinc-300 hover:border-pink-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </>
       )}
 
