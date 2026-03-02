@@ -9,6 +9,7 @@ import {
   Zap,
   ImagePlus,
   Repeat,
+  LifeBuoy,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -21,6 +22,7 @@ const navigation = [
   { name: 'Caption Ultimate v1.0', href: '/captions', icon: ImagePlus },
   { name: 'Face Swap', href: '/faceswap', icon: Repeat },
   { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Support', href: '/support', icon: LifeBuoy },
 ]
 
 export default async function DashboardLayout({
